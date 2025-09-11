@@ -31,6 +31,9 @@ import SimplySupportedBeam from "./modules/flexuralMember/simplySupportedBeam";
 import BoltedToEnd from "./modules/TensionMembers/BoltedToEnd/BoltedToEnd";
 import CoverPlateBolted from "./modules/coverPlateBolted/CoverPlateBolted";
 import BeamBeamEndPlate from "./modules/beamBeamEndPlate/BeamBeamEndPlate";
+import BasePlateConnection from "./modules/shearConnection/Baseplate/BasePlate";
+
+
 
 import "./App.css"; // ✓ CSS properly imported
 let renderedOnce = false;
@@ -85,6 +88,8 @@ function App() {
             path="/design/:designType/simply_supported_beam/:projectId?"
             element={<SimplySupportedBeam />}
           />
+          <Route path="/design/connections/base_plate/:projectId?" element={<BasePlateConnection />} />
+
           <Route path="/user" element={<UserAccount />} />
         </Route>
         )
