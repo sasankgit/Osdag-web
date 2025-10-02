@@ -86,7 +86,7 @@ function App() {
         />
         <Route path="/design/tension-member/bolted_to_end_gusset/:projectId?" element={<BoltedToEnd />} />
 
-<<<<<<< HEAD
+
           <Route
             path='/design/:designType/bolted_to_end_gusset'
             element={<BoltedToEnd />}
@@ -105,24 +105,7 @@ function App() {
         </Route>
         )
         );
-=======
-        <Route
-          path='/design/:designType/bolted_to_end_gusset'
-          element={<BoltedToEnd />}
-        />
-        <Route
-          path="/design/:designType/beam-to-beam-splice/cover_plate_welded/:projectId?"
-          element={<CoverPlateWelded />}
-        />
-        <Route
-          path="/design/:designType/simply_supported_beam/:projectId?"
-          element={<SimplySupportedBeam />}
-        />
-        <Route path="/user" element={<UserAccount />} />
-      </Route>
-    )
-  );
->>>>>>> 33b3c0ed9b365a7aa8a4d82db88eca598610f1c5
+
 
   return (
     <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
