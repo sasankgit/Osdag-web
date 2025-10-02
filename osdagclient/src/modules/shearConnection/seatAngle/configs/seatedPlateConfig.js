@@ -1,11 +1,11 @@
-import { UI_STRINGS } from './UIStrings';
-import { MODULE_KEY_FIN_PLATE, MODULE_DISPLAY_FIN_PLATE } from '../../../../constants/DesignKeys';
+import { UI_STRINGS } from '../../../../constants/UIStrings';
+import { MODULE_KEY_SEAT_PLATE, MODULE_DISPLAY_SEAT_PLATE } from '../../../../constants/DesignKeys';
 
-export const finPlateConfig = {
-  sessionName: MODULE_DISPLAY_FIN_PLATE,
-  routePath: "/design/connections/shear/fin_plate",
-  designType: MODULE_KEY_FIN_PLATE,
-  cameraKey: "FinPlate",
+export const seatedPlateConfig = {
+  sessionName: MODULE_DISPLAY_SEAT_PLATE,
+  routePath: "/design/connections/shear/seat_plate",
+  designType: MODULE_KEY_SEAT_PLATE,
+  cameraKey: "SeatedPlate",
   cadOptions: ["Model", "Beam", "Column", "Plate"],
   
   defaultInputs: {
@@ -15,7 +15,7 @@ export const finPlateConfig = {
     connector_material: "E 250 (Fe 410 W)A",
     load_shear: "70",
     load_axial: "30",
-    module: MODULE_KEY_FIN_PLATE,
+    module: MODULE_KEY_SEAT_PLATE,
     plate_thickness: [],
     beam_section: "MB 300",
     column_section: "HB 150",
@@ -37,14 +37,14 @@ export const finPlateConfig = {
 
   modalConfig: [
     { key: "boltDiameter", inputKey: "bolt_diameter", dataSource: "boltDiameterList" },
-    { key: "boltGrade", inputKey: "bolt_grade", dataSource: "propertyClassList" }, // ✅ updated
+    { key: "propertyClass", inputKey: "bolt_grade", dataSource: "propertyClassList" },
     { key: "plateThickness", inputKey: "plate_thickness", dataSource: "thicknessList" },
   ],
 
   selectionConfig: [
     { key: "boltDiameterSelect", inputKey: "bolt_diameter", defaultValue: "All" },
-    { key: "boltGradeSelect", inputKey: "bolt_grade", defaultValue: "All" }, // ✅ updated
-    { key: "plateThicknessSelect", inputKey: "plate_thickness", defaultValue: "All" }, // ✅ updated
+    { key: "propertyClassSelect", inputKey: "bolt_grade", defaultValue: "All" },
+    { key: "thicknessSelect", inputKey: "plate_thickness", defaultValue: "All" },
   ],
 
   validateInputs: (inputs) => {
@@ -139,15 +139,20 @@ export const finPlateConfig = {
           type: "connectivitySelect"
         },
         {
-          key: "EndCondition",
-          label: UI_STRINGS.ENDCONDITION,
-          
-        },
-        {
           key: "column_section", 
           label: UI_STRINGS.COLUMN_SECTION,
           type: "select",
           options: "columnList",
+          conditionalDisplay: (extraState) => {
+            const connectivity = extraState?.selectedOption;
+            return connectivity === "Column Flange-Beam-Web" || connectivity === "Column Web-Beam-Web";
+          }
+        },
+        {
+          key: "beam_section",
+          label: UI_STRINGS.BEAM_SECTION, 
+          type: "select",
+          options: "beamList",
           conditionalDisplay: (extraState) => {
             const connectivity = extraState?.selectedOption;
             return connectivity === "Column Flange-Beam-Web" || connectivity === "Column Web-Beam-Web";
@@ -191,16 +196,12 @@ export const finPlateConfig = {
     {
       title: UI_STRINGS.FACTORED_LOADS,
       fields: [
-        { key: "AXIAL_COMPRESSION", label: UI_STRINGS.AXIAL_COMPRESSION, type: "number" },
-        { key: "AXIAL TENSION", label: UI_STRINGS.AXIAL_LIFT_UPLIFT, type: "number" },
-        { key: "Z VALUE", label: UI_STRINGS.ALONG_MAJOR_AXISZ, type: "number" },
-        { key: "y VALUE", label: UI_STRINGS.ALONG_MAJOR_AXISY, type: "number" },
         { key: "load_shear", label: UI_STRINGS.SHEAR_FORCE, type: "number" },
         { key: "load_axial", label: UI_STRINGS.AXIAL_FORCE, type: "number" }
       ]
     },
     {
-      title: UI_STRINGS.ANCHOR_BOLT_OUTSIDE_COLUMN_FLANGE,
+      title: UI_STRINGS.BOLT,
       fields: [
         {
           key: "bolt_diameter",
@@ -211,60 +212,36 @@ export const finPlateConfig = {
           dataSource: "boltDiameterList"
         },
         {
+          key: "bolt_type",
+          label: UI_STRINGS.TYPE,
+          type: "select",
+          options: [
+            { value: "Bearing_Bolt", label: UI_STRINGS.TYPE + " (Bearing Bolt)" },
+            { value: "Friction_Grip_Bolt", label: UI_STRINGS.TYPE + " (Friction Grip Bolt)" }
+          ]
+        },
+        {
           key: "bolt_grade",
           label: UI_STRINGS.PROPERTY_CLASS,
           type: "customizable",
-          selectionKey: "boltGradeSelect", // ✅ updated
-          modalKey: "boltGrade", // ✅ updated
+          selectionKey: "propertyClassSelect",
+          modalKey: "propertyClass",
           dataSource: "propertyClassList"
         }
       ]
     },
     {
-      title: UI_STRINGS.ANCHOR_BOLT_INSIDE_COLUMN_FLANGE,
+      title: UI_STRINGS.PLATE,
       fields: [
         {
           key: "plate_thickness",
-          label: UI_STRINGS.DIAMETER,
+          label: UI_STRINGS.THICKNESS,
           type: "customizable",
-          selectionKey: "plateThicknessSelect", // ✅ updated
+          selectionKey: "thicknessSelect",
           modalKey: "plateThickness",
           dataSource: "thicknessList"
-        },
-        {
-          key: "plate_thickness",
-          label: UI_STRINGS.PROPERTY_CLASS,
-          type: "customizable",
-          selectionKey: "plateThicknessSelect", // ✅ updated
-          modalKey: "plateThickness",
-          dataSource: "thicknessList"
-        },
-        {
-          key: "plate_thickness",
-          label: UI_STRINGS.ANCHOR_TYPE,
-          type: "customizable",
-          selectionKey: "plateThicknessSelect", // ✅ updated
-          modalKey: "plateThickness",
-          dataSource: "thicknessList"
-        },
-      ]
-    },
-    {
-      title: UI_STRINGS.PEDESTAL_FOOTING,
-      fields: [
-        { key: "GRADE", label: UI_STRINGS.GRADE, type: "number" },
-        
-      ]
-    },
-    {
-      title: UI_STRINGS.WELD,
-      fields: [
-        { key: "GRADE", label: UI_STRINGS.TYPE, type: "number" },
-        
+        }
       ]
     }
-    
-    
-    
   ]
 };

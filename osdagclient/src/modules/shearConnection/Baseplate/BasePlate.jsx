@@ -4,7 +4,7 @@ import { EngineeringModule } from "../../shared/components/EngineeringModule";
 import FinPlateOutputDock from "./components/FinPlateOutputDock";
 import { menuItems } from "../../shared/utils/moduleUtils";
 import { finPlateConfig } from "./configs/finPlateConfig";
-import { UI_STRINGS } from '../../../constants/UIStrings';
+import { UI_STRINGS } from './configs/UIStrings';
 
 function BasePlateConnection() {
   return (
