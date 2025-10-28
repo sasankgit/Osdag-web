@@ -5,13 +5,13 @@ export const finPlateConfig = {
   sessionName: MODULE_DISPLAY_FIN_PLATE,
   routePath: "/design/connections/shear/fin_plate",
   designType: MODULE_KEY_FIN_PLATE,
-  cameraKey: "FinPlate",
+  cameraKey: "FinPlateConnection",
   cadOptions: ["Model", "Beam", "Column", "Plate"],
   
   defaultInputs: {
     bolt_diameter: [],
     bolt_grade: [],
-    bolt_type: "Bearing Bolt",
+    bolt_type: "Bearing_Bolt",
     connector_material: "E 250 (Fe 410 W)A",
     load_shear: "70",
     load_axial: "30",
@@ -47,12 +47,17 @@ export const finPlateConfig = {
     { key: "thicknessSelect", inputKey: "plate_thickness", defaultValue: "All" },
   ],
 
-  validateInputs: (inputs) => {
-    const connectivity = inputs.connectivity;
-    
+  validateInputs: (inputs, extraState) => {
+    const connectivity = extraState?.selectedOption || inputs.connectivity;
+
+    // Basic numeric loads must not be empty
+    if (inputs.load_shear === "" || inputs.load_axial === "") {
+      return { isValid: false, message: UI_STRINGS.PLEASE_INPUT_ALL_FIELDS };
+    }
+
     if (connectivity === "Column Flange-Beam-Web" || connectivity === "Column Web-Beam-Web") {
-      if (!inputs.beam_section || !inputs.column_section || 
-          inputs.beam_section === "Select Section" || 
+      if (!inputs.beam_section || !inputs.column_section ||
+          inputs.beam_section === "Select Section" ||
           inputs.column_section === "Select Section") {
         return { isValid: false, message: UI_STRINGS.PLEASE_INPUT_ALL_FIELDS };
       }
@@ -159,26 +164,6 @@ export const finPlateConfig = {
           }
         },
         {
-          key: "primary_beam",
-          label: UI_STRINGS.PRIMARY_BEAM,
-          type: "select", 
-          options: "beamList",
-          conditionalDisplay: (extraState) => {
-            const connectivity = extraState?.selectedOption;
-            return connectivity === "Beam-Beam";
-          }
-        },
-        {
-          key: "secondary_beam",
-          label: UI_STRINGS.SECONDARY_BEAM,
-          type: "select",
-          options: "beamList", 
-          conditionalDisplay: (extraState) => {
-            const connectivity = extraState?.selectedOption;
-            return connectivity === "Beam-Beam";
-          }
-        },
-        {
           key: "connector_material",
           label: UI_STRINGS.MATERIAL,
           type: "select",
@@ -216,8 +201,8 @@ export const finPlateConfig = {
           label: UI_STRINGS.TYPE,
           type: "select",
           options: [
-            { value: "Bearing_Bolt", label: UI_STRINGS.TYPE + " (Bearing Bolt)" },
-            { value: "Friction_Grip_Bolt", label: UI_STRINGS.TYPE + " (Friction Grip Bolt)" }
+            { value: "Bearing_Bolt", label: "Bearing Bolt" },
+            { value: "Friction_Grip_Bolt", label: "Friction Grip Bolt" }
           ]
         },
         {

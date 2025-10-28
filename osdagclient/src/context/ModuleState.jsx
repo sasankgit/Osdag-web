@@ -23,6 +23,7 @@ let initialValue = {
   boltDiameterList: [],
   thicknessList: [],
   propertyClassList: [],
+  boltTypeList: [],
 
   // Structural elements
   beamList: [],
@@ -93,7 +94,7 @@ export const ModuleProvider = ({ children }) => {
    * Universal function to get all module data in one API call
    * Replaces: getConnectivityList, getColumnBeamMaterialList, getBeamMaterialList, 
    *          getBoltDiameterList, getThicknessList, getPropertyClassList, etc.
-   * @param {string} moduleName - Module identifier (e.g., 'Fin-Plate-Connection')
+   * @param {string} moduleName - Module identifier (e.g., 'FinPlateConnection')
    * @param {Object} options - Optional parameters
    * @param {string} options.connectivity - Connection type filter
    * @param {Object} options.filters - Additional filters for data
@@ -267,11 +268,16 @@ export const ModuleProvider = ({ children }) => {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`CAD generation failed: ${response.status} ${response.statusText}`);
-      }
+
 
       const data = await response.json();
+      if (!response.ok) {
+        let message = data.message || "CAD generation failed";
+
+        // eslint-disable-next-line no-alert
+        alert(message + " " + response.status);
+        throw new Error(`CAD generation failed: ${response.status} ${response.statusText}`);
+      }
 
       if (response.status === 201 && data.status === "success") {
         console.log("✅ [MODULE CONTEXT] CAD Model Generated Successfully" + response.json);
@@ -396,6 +402,7 @@ export const ModuleProvider = ({ children }) => {
         case 'design_report': {
           // Use external API for design report generation
           const { moduleId, inputValues, designStatus = true, logs = [] } = params;
+          console.log("🛠️ [MODULE CONTEXT] Generating design report with params:", params);
           return apiCreateDesignReport(params, moduleId, inputValues, designStatus, logs, uploadCompanyLogo, generateReport);
         }
 
@@ -553,6 +560,7 @@ export const ModuleProvider = ({ children }) => {
         boltDiameterList: state.boltDiameterList,
         thicknessList: state.thicknessList,
         propertyClassList: state.propertyClassList,
+        boltTypeList: state.boltTypeList,
 
         // Structural elements
         beamList: state.beamList,

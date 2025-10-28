@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import yaml from 'js-yaml';
+import { useNavigate } from 'react-router-dom';
+import { MODULE_ROUTES, MODULE_NAME_TO_KEY } from '../../constants/modules';
 import { isGuestUser } from '../../utils/auth';
 
 const Header = ({ setshowSideBar, active }) => {
@@ -7,6 +10,8 @@ const Header = ({ setshowSideBar, active }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showResourcesDropdown, setShowResourcesDropdown] = useState(false);
   const [showAboutDropdown, setShowAboutDropdown] = useState(false);
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
   // Check if user is a guest
   const isGuest = isGuestUser();
@@ -111,12 +116,60 @@ const Header = ({ setshowSideBar, active }) => {
 
   return (
     <div className="border-osdag-border dark:border-gray-700">
+      {/* Hidden file input for OSI import */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".osi,.yaml,.yml,text/yaml,text/x-yaml,application/x-yaml"
+        className="hidden"
+        onChange={async (e) => {
+          try {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const text = await file.text();
+            const uiObj = yaml.load(text) || {};
+            const moduleField = uiObj.Module || uiObj["Module"] || uiObj.module || uiObj["module"];
+            if (!moduleField || typeof moduleField !== 'string') {
+              alert('Unsupported or invalid OSI file: Module not found.');
+              e.target.value = '';
+              return;
+            }
+            const normalizedModule = moduleField.trim();
+            // Resolve moduleKey and route
+            let moduleKey = null;
+            let route = MODULE_ROUTES[normalizedModule] || null;
+            if (route) {
+              moduleKey = normalizedModule;
+            } else {
+              moduleKey = MODULE_NAME_TO_KEY[normalizedModule] || null;
+              route = moduleKey ? MODULE_ROUTES[moduleKey] : null;
+            }
+            if (!route) {
+              alert(`Unsupported module in OSI: ${normalizedModule}`);
+              e.target.value = '';
+              return;
+            }
+            // Store raw uiObj for Phase 2 prefill
+            try {
+              if (moduleKey) {
+                sessionStorage.setItem(`prefill:${moduleKey}`, JSON.stringify(uiObj));
+              }
+            } catch (_) {}
+            navigate(route);
+          } catch (err) {
+            console.error('Failed to import OSI:', err);
+            alert('Failed to import OSI. Please ensure the file is valid.');
+          } finally {
+            if (e?.target) e.target.value = '';
+          }
+        }}
+      />
       {/* Main Header */}
       <div className="px-4 sm:px-8 md:px-12 pb-8">
         <div className="flex items-center justify-between py-4 md:py-0">
           {/* Hamburger Menu Icon (Mobile/Tablet Only) */}
           <button
-            className="md:hidden p-2 rounded-lg text-osdag-text-muted hover:text-osdag-text-primary focus:outline-none focus:ring-2 focus:ring-osdag-green"
+            className="block lg:hidden p-2 rounded-lg text-osdag-text-muted hover:text-osdag-text-primary focus:outline-none focus:ring-2 focus:ring-osdag-green"
             aria-label="Open menu"
             onClick={() => {
               setshowSideBar(true);
@@ -130,12 +183,21 @@ const Header = ({ setshowSideBar, active }) => {
           {/* Logo and Branding */}
           <div className="flex-1 flex flex-col items-center lg:items-start md:flex-row md:items-end md:space-x-8">
             <div className="flex flex-col items-center lg:items-start">
-              <h1 className="text-3xl sm:text-5xl md:text-[80px] font-light text-osdag-text-primary dark:text-white tracking-tight">
-                Osdag<sup className="text-lg font-normal">®</sup>
-              </h1>
-              <p className="text-base sm:text-lg md:text-3xl text-osdag-text-secondary dark:text-gray-300 font-light mt-1">
-                Open steel design and graphics
-              </p>
+              <picture>
+                {/* This source will be used if the user is in dark mode */}
+                <source srcset="/images/Osdag_label_dark.svg" media="(prefers-color-scheme: dark)" />
+
+                {/* This is the default image for light mode and for browsers that don't support the picture tag */}
+                <img src="/images/Osdag_label.svg" alt="Osdag Logo" className="h-20 mt-6" />
+              </picture>
+              <picture>
+                {/* This source will be used if the user is in dark mode */}
+                <source srcset="/images/Osdag_tagline_dark.svg" media="(prefers-color-scheme: dark)" />
+
+                {/* This is the default image for light mode and for browsers that don't support the picture tag */}
+                <img src="/images/Osdag_tagline.svg" alt="Osdag Tagline" className="h-8" />
+              </picture>
+              
             </div>
             {/* Icons (Mobile/Tablet: below logo, Desktop: right side) */}
             <div className="flex md:hidden mt-4 space-x-2">
@@ -170,16 +232,16 @@ const Header = ({ setshowSideBar, active }) => {
                 {(showResourcesDropdown || false) && (
                   <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800/20 border border-osdag-border dark:border-gray-700 rounded-xl shadow-lg z-20 min-w-48 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="py-2">
-                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary  hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Videos
                       </button>
-                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary  hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Osi File
                       </button>
-                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary  hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Documentation
                       </button>
-                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <button className="w-full px-4 py-2 text-left text-osdag-text-primary  hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Databases
                       </button>
                     </div>
@@ -198,14 +260,14 @@ const Header = ({ setshowSideBar, active }) => {
           </div>
 
           {/* Desktop Icons */}
-          <div className="hidden md:flex items-center space-x-1 pb-6">
+          <div className="hidden md:flex items-center space-x-1 mb-6 border-black p-2 bg-white dark:bg-osdag-dark-color rounded-lg justify-center" >
             {/* About Button with Dropdown */}
-            <div className="relative about-dropdown group">
+            <div className="relative about-dropdown group ">
               <button
                 onClick={() => setShowAboutDropdown(!showAboutDropdown)}
                 className={`p-3 transition-all duration-300 rounded-xl group-hover:px-6 ${showAboutDropdown
                   ? 'bg-osdag-green text-white'
-                  : 'text-black dark:text-white hover:text-white hover:bg-osdag-green'
+                  : 'text-black dark:text-white  hover:text-white hover:bg-osdag-green'
                   }`}
               >
                 <div className="flex items-center space-x-2">
@@ -234,10 +296,10 @@ const Header = ({ setshowSideBar, active }) => {
               {(showAboutDropdown || false) && (
                 <div className="absolute right-0 top-full mt-2 bg-white dark:bg-black/70 border border-osdag-border dark:border-osdag-green rounded-xl shadow-lg z-20 min-w-48 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="py-2">
-                    <button className="w-full px-4 py-2 text-left text-osdag-green dark:text-white hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
+                    <button className="w-full px-4 py-2 text-left text-osdag-green  hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
                       Help
                     </button>
-                    <button className="w-full px-4 py-2 text-left text-osdag-green dark:text-white hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
+                    <button className="w-full px-4 py-2 text-left text-osdag-green  hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
                       Info
                     </button>
                   </div>
@@ -264,7 +326,7 @@ const Header = ({ setshowSideBar, active }) => {
               </button>
             </div>
             {/* Resources Button with Dropdown */}
-            <div className="relative resources-dropdown group">
+            <div className="relative resources-dropdown group ">
               <button
                 onClick={() => setShowResourcesDropdown(!showResourcesDropdown)}
                 className={`p-3 transition-all duration-300 rounded-xl group-hover:px-6 ${showResourcesDropdown
@@ -299,16 +361,16 @@ const Header = ({ setshowSideBar, active }) => {
               {(showResourcesDropdown || false) && (
                 <div className="absolute right-0 top-full mt-2 bg-white dark:bg-black/70 border border-osdag-border dark:border-osdag-green rounded-xl shadow-lg z-20 min-w-48 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="py-2">
-                    <button className="w-full px-4 py-2 text-left text-osdag-green dark:text-white hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
+                    <button className="w-full px-4 py-2 text-left text-osdag-green  hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
                       Videos
                     </button>
-                    <button className="w-full px-4 py-2 text-left text-osdag-green dark:text-white hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
+                    <button className="w-full px-4 py-2 text-left text-osdag-green  hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
                       Osi File
                     </button>
-                    <button className="w-full px-4 py-2 text-left text-osdag-green dark:text-white hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
+                    <button className="w-full px-4 py-2 text-left text-osdag-green  hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
                       Documentation
                     </button>
-                    <button className="w-full px-4 py-2 text-left text-osdag-green dark:text-white hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
+                    <button className="w-full px-4 py-2 text-left text-osdag-green  hover:bg-osdag-green/10 dark:hover:bg-osdag-green/20 transition-colors">
                       Databases
                     </button>
                   </div>
@@ -317,7 +379,7 @@ const Header = ({ setshowSideBar, active }) => {
             </div>
             {/* Documents Button */}
             <div className="relative group">
-              <button className="p-3 text-black dark:text-white hover:text-white transition-all duration-300 hover:bg-osdag-green rounded-xl group-hover:px-6">
+              <button className="p-3 text-black dark:text-white hover:text-white transition-all duration-300 hover:bg-osdag-green rounded-xl group-hover:px-6" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
                 <div className="flex items-center space-x-2">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -328,7 +390,7 @@ const Header = ({ setshowSideBar, active }) => {
                     />
                   </svg>
                   <span className="text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 w-0 group-hover:w-auto overflow-hidden whitespace-nowrap">
-                    Import Input
+                    Import
                   </span>
                 </div>
               </button>
@@ -337,7 +399,7 @@ const Header = ({ setshowSideBar, active }) => {
             <div className="relative group">
               <button
                 onClick={toggleTheme}
-                className="p-2 text-black dark:text-white hover:text-osdag-green transition-colors"
+                className="p-2 text-black dark:text-white transition-colors"
               >
                 {isDark ? (
                   <svg
@@ -345,7 +407,6 @@ const Header = ({ setshowSideBar, active }) => {
                     height="24px"
                     viewBox="0 -960 960 960"
                     width="24px"
-                    fill="#ffffff"
                   >
                     <path d="M480-360q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35Zm0 80q-83 0-141.5-58.5T280-480q0-83 58.5-141.5T480-680q83 0 141.5 58.5T680-480q0 83-58.5 141.5T480-280ZM200-440H40v-80h160v80Zm720 0H760v-80h160v80ZM440-760v-160h80v160h-80Zm0 720v-160h80v160h-80ZM256-650l-101-97 57-59 96 100-52 56Zm492 496-97-101 53-55 101 97-57 59Zm-98-550 97-101 59 57-100 96-56-52ZM154-212l101-97 55 53-97 101-59-57Zm326-268Z" />
                   </svg>
@@ -377,7 +438,7 @@ const Header = ({ setshowSideBar, active }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search modules or projects..."
-              className={`w-full pl-24 pr-20 py-4 bg-gray-50 dark:bg-gray-800/20 border border-osdag-border dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-osdag-green focus:border-transparent text-osdag-text-primary dark:text-white placeholder-osdag-text-muted text-base shadow-search transition-all ${isSearchFocused ? 'ring-2 ring-osdag-green' : ''
+              className={`w-full pl-24 pr-20 py-4 bg-gray-50 dark:bg-gray-800/20 border border-osdag-border dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-osdag-green focus:border-transparent text-osdag-text-primary  placeholder-osdag-text-muted text-base shadow-search transition-all ${isSearchFocused ? 'ring-2 ring-osdag-green' : ''
                 }`}
               onFocus={() => {
                 setIsSearchFocused(true);
@@ -416,7 +477,7 @@ const Header = ({ setshowSideBar, active }) => {
                                     <span className="text-osdag-green font-semibold text-sm">L</span>
                                   </div>
                                   <div>
-                                    <div className="text-osdag-text-primary dark:text-white font-medium text-sm">
+                                    <div className="text-osdag-text-primary  font-medium text-sm">
                                       {item.name}
                                     </div>
                                     <div className="text-osdag-text-secondary dark:text-gray-400 text-xs">
@@ -445,7 +506,7 @@ const Header = ({ setshowSideBar, active }) => {
                                     <span className="text-osdag-green font-semibold text-sm">L</span>
                                   </div>
                                   <div>
-                                    <div className="text-osdag-text-primary dark:text-white font-medium text-sm">
+                                    <div className="text-osdag-text-primary  font-medium text-sm">
                                       {item.name}
                                     </div>
                                     <div className="text-osdag-text-secondary dark:text-gray-400 text-xs">

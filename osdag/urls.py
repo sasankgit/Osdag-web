@@ -12,6 +12,7 @@ from osdag.web_api.user_view import SignupView, ForgetPasswordView, LogoutView, 
 from osdag.web_api.jwt_api import JWTHomeView
 from osdag.web_api.google_sso_api import GoogleSSOView
 from osdag.web_api.project_api import ProjectAPI, ProjectDetailAPI, ProjectByNameAPI
+from osdag.web_api.osi_api import SaveOsiFromInputs, OpenOsiUpload, OpenOsiById, ModuleRoutes
 from . import views
 from osdag.web_api.endplate_outputView import EndPLateOutputData
 from osdag.web_api.cleatangle_outputView import CleatAngleOutputData
@@ -22,6 +23,7 @@ from osdag.web_api.cover_plate_weld_output import CoverPlateWeldedOutputData
 from osdag.web_api.beam_to_column_endplate_output import BeamToColumnEndPlateOutputData
 from osdag.web_api.tensionmemberbolted_outputView import TensionMemberBoltedOutputData
 from osdag.web_api.simplysupportedbeam_outputView import SimplySupportedBeamOutputData
+from osdag.web_api.report_customization_api import ParseReportSections, CustomizeReport, GenerateInitialReport
 # temporary
 app_name = 'osdag-web/'
 
@@ -81,6 +83,8 @@ urlpatterns = [
     path('user/checkemail/' , CheckEmailView.as_view()),
     path('user/saveinput/' , SaveInputFileView.as_view()),
     path('user/obtain-input-file/' , ObtainInputFileView.as_view()),
+    # osi upload via DRF (multipart form-data)
+    path('api/save-osi/', SaveInputFileView.as_view()),
     path('user/set-refresh/' , SetRefreshTokenCookieView.as_view()),
 
     # project management urls
@@ -88,9 +92,15 @@ urlpatterns = [
     path('api/projects/<int:project_id>/', ProjectDetailAPI.as_view(), name='project-detail'),
     path('api/projects/by-name/<str:project_name>/', ProjectByNameAPI.as_view(), name='project-by-name'),
 
+    # osi endpoints
+    path('api/save-osi-from-inputs/', SaveOsiFromInputs.as_view()),
+    path('api/open-osi/', OpenOsiUpload.as_view()),
+    path('api/open-osi/<int:osifile_id>/', OpenOsiById.as_view()),
+    path('api/module-routes/', ModuleRoutes.as_view()),
+
     # output generation from input
-    path('calculate-output/Fin-Plate-Connection',
-         OutputData.as_view(), name='Fin-Plate-Connection'),
+    path('calculate-output/FinPlateConnection',
+         OutputData.as_view(), name='FinPlateConnection'),
 
     path('calculate-output/End-Plate-Connection',
          EndPLateOutputData.as_view(), name='End-Plate-Connection'),
@@ -98,8 +108,8 @@ urlpatterns = [
     path('calculate-output/Cleat-Angle-Connection',
          CleatAngleOutputData.as_view(),name="Cleat-Angle-Connection"),
     
-    path('calculate-output/Seated-Angle-Connection',
-         SeatedAngleOutputData.as_view(),name="Seated-Angle-Connection"),
+    path('calculate-output/SeatedAngleConnection',
+         SeatedAngleOutputData.as_view(),name="SeatedAngleConnection"),
     
     path('calculate-output/Cover-Plate-Bolted-Connection',
          CoverPlateBoltedOutputData.as_view(),name="Cover-Plate-Bolted-Connection"),
@@ -117,4 +127,9 @@ urlpatterns = [
          TensionMemberBoltedOutputData.as_view(),name="Tension-Member-Bolted-Design"),
     path('calculate-output/Simply-Supported-Beam',
          SimplySupportedBeamOutputData.as_view(), name="Simply-Supported-Beam"),
+    
+    # Report customization API endpoints
+    path('api/report/generate-initial/', GenerateInitialReport.as_view(), name='generate-initial-report'),
+    path('api/report/parse-sections/', ParseReportSections.as_view(), name='parse-report-sections'),
+    path('api/report/customize/', CustomizeReport.as_view(), name='customize-report'),
 ]

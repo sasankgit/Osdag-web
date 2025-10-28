@@ -1,5 +1,5 @@
 """
-Api for Fin-Plate-Connection module
+Api for FinPlateConnection module
 Functions:
     get_required_keys() -> List[str]:
         Return all required input parameters for the module.
@@ -8,9 +8,9 @@ Functions:
         Check if all required parameters are given.
         Check if all parameters are of correct data type.
     create_module() -> FinPlateConnection:
-        Create an instance of the Fin-Plate-Connection module design class and set it up for use
+        Create an instance of the FinPlateConnection module design class and set it up for use
     create_from_input(input_values: Dict[str, Any]) -> FinPlateConnection
-        Create an instance of the Fin-Plate-Connection module design class from input values.
+        Create an instance of the FinPlateConnection module design class from input values.
     generate_output(input_values: Dict[str, Any]) -> Dict[str, Any]:
         Generate, format and return the input values from the given output values.
             Output format (json): {
@@ -28,19 +28,24 @@ from osdag_api.errors import MissingKeyError, InvalidInputTypeError
 from osdag_api.utils import contains_keys, custom_list_validation, float_able, int_able, is_yes_or_no, validate_list_type
 import osdag_api.modules.shear_connection_common as scc
 from OCC.Core import BRepTools
+from OCC.Core.TopoDS import TopoDS_Compound
+from OCC.Core.BRep import BRep_Builder
 from OCC.Core.Message import Message_ProgressRange
 from OCC.Core.STEPControl import STEPControl_Writer, STEPControl_AsIs
 from OCC.Core.IGESControl import IGESControl_Writer
+
 # from OCC.Core.StlAPI import StlAPI_Writer
 # from OCC.Core.TopoDS import TopoDS_Solid, TopoDS_Shell
 from cad.common_logic import CommonDesignLogic
 # Will log a lot of unnessecary data.
-from design_type.connection.fin_plate_connection import FinPlateConnection
+from osdag_core.design_type.connection.fin_plate_connection import FinPlateConnection
+from osdag_core.custom_logger import CustomLogger
 import sys
 import os
 import typing
 from typing import Dict, Any, List
 import traceback
+import json
 
 old_stdout = sys.stdout  # Backup log
 sys.stdout = open(os.devnull, "w")  # redirect stdout
@@ -310,7 +315,7 @@ def validate_input_new(input_values: Dict[str, Any]) -> None:
 
 
 def create_module() -> FinPlateConnection:
-    """Create an instance of the Fin-Plate-Connection module design class and set it up for use"""
+    """Create an instance of the FinPlateConnection module design class and set it up for use"""
     module = FinPlateConnection()  # Create an instance of the FinPlateConnection
     module.set_osdaglogger(None)
     return module
@@ -319,20 +324,25 @@ def create_module() -> FinPlateConnection:
 def create_from_input(input_values: Dict[str, Any]) -> FinPlateConnection:
     """Create an instance of the beam beam end plate connection module design class from input values."""
     # validate_input(input_values)
-    try : 
+    module = None
+    try:
         module = create_module()  # Create module instance.
-    except Exception as e : 
-        print('e in create_module : ' , e) 
+    except Exception as e:
+        print('e in create_module : ', e)
         print('error in creating module')
+        raise
     
     # Set the input values on the module instance.
-    try : 
+    try:
         print(input_values)
+        if module is None:
+            raise RuntimeError('Module instance was not created')
         module.set_input_values(input_values)
-    except Exception as e : 
+    except Exception as e:
         traceback.print_exc()
-        print('e in set_input_values : ' , e)
+        print('e in set_input_values : ', e)
         print('error in setting the input values')
+        raise
 
     return module
 
@@ -353,37 +363,65 @@ def generate_output(input_values: Dict[str, Any]) -> Dict[str, Any]:
     module = create_from_input(input_values)  # Create module from input.
     print('in fin_plate_connection.py: module : ' , module)
     print('in fin_plate_connection.py: type of module : ' , type(module))
+    # Initialize logs variable first
+    logs = []
+    
+    try:
+        # Generate output values in unformatted form.
+        raw_output_text = module.output_values(True)
+        print('in fin_plate_connection.py: raw_output_text:', raw_output_text)
+        raw_output_spacing = module.spacing(True)
+        print('in fin_plate_connection.py: raw_output_spacing:', raw_output_spacing)
+        raw_output_capacities = module.capacities(True)
+        print('in fin_plate_connection.py: raw_output_capacities:', raw_output_capacities)
+        raw_output_section_capacities = module.section_capacities(True)
+        print('in fin_plate_connection.py: raw_output_section_capacities:', raw_output_section_capacities)
+        
+        # Get logs from the custom logger
+        if hasattr(module, 'logger') and isinstance(module.logger, CustomLogger):
+            logs = module.logger.get_logs()
+            print(f'Retrieved {len(logs)} logs from custom logger')
+        else:
+            print('Logger is not CustomLogger instance or logger not found')
+            print(f'Logger type: {type(module.logger) if hasattr(module, "logger") else "No logger"}')
 
-    # Generate output values in unformatted form.
-    raw_output_text = module.output_values(True)
-    print('in fin_plate_connection.py: raw_output_text:', raw_output_text)
-    raw_output_spacing = module.spacing(True)  # Generate output val
-    print('in fin_plate_connection.py: raw_output_spacing:', raw_output_spacing)
-    raw_output_capacities = module.capacities(True)
-    print('in fin_plate_connection.py: raw_output_capacities:', raw_output_capacities)
-    raw_output_section_capacities = module.section_capacities(True)
-    print('in fin_plate_connection.py: raw_output_section_capacities:', raw_output_section_capacities)
-    logs = module.logs
-    print('in fin_plate_connection.py: logs:', logs)
-    raw_output = raw_output_text + raw_output_spacing + raw_output_capacities + raw_output_section_capacities
-    print('in fin_plate_connection.py: raw_output combined:', raw_output)
-    # os.system("clear")
-    # Loop over all the text values and add them to ouptut dict.
-    for param in raw_output:
-        print("in fin_plate_connection.py: Processing param:", param)
-        if param[2] == "TextBox":  # If the parameter is a text output,
-            key = param[0]  # id/key
-            label = param[1]  # label text.
-            value = param[3]  # Value as string.
-            output[key] = {
-                "key": key,
-                "label": label,
-                "val": value  # Changed from "value" to "val" to match frontend expectations
-            }  # Set label, key and value in output
-            print(f"in fin_plate_connection.py: Added output[{key}] = {output[key]}")
-    print("in fin_plate_connection.py: Final output dict:", output)
-    print("in fin_plate_connection.py: Output keys:", list(output.keys()))
-    print("in fin_plate_connection.py: Returning logs:", logs)
+        # Combine all raw outputs
+        raw_output = raw_output_text + raw_output_spacing + raw_output_capacities + raw_output_section_capacities
+        print('in fin_plate_connection.py: raw_output combined length:', len(raw_output))
+
+        # Process each parameter with handling for both 4 and 5 element tuples
+        for i, param in enumerate(raw_output):
+            print(f"in fin_plate_connection.py: Processing param {i}: {param}")
+            print(f"Param length: {len(param)}")
+            
+            # Handle both 4-element and 5-element tuples
+            if len(param) >= 4:
+                key = param[0]
+                label = param[1] 
+                param_type = param[2]
+                value = param[3]
+                
+                print(f"Key: {key}, Label: {label}, Type: {param_type}, Value: {value}")
+                
+                # Check if it's a TextBox type and has a valid key
+                if param_type == "TextBox" and key is not None:
+                    # Handle numpy types
+                    if hasattr(value, 'item'):  # numpy scalar
+                        value = value.item()
+                    
+                    output[key] = {
+                        "key": key,
+                        "label": label,
+                        "val": value
+                    }
+    except Exception as e:
+        print(f'Error in generate_output: {e}')
+        import traceback
+        traceback.print_exc()
+        
+    print("in fin_plate_connection.py: Final output dict: ", output)
+    print("in fin_plate_connection.py: Output keys: ", list(output.keys()))
+    print("in fin_plate_connection.py: Returning logs: **********", logs)
     return output, logs
 
 
@@ -409,9 +447,47 @@ def create_cad_model(input_values: Dict[str, Any], section: str, session: str) -
 
     # The section of the module that will be generated.
     cld.component = section
-    
-    try : 
-        model = cld.create2Dcad()  # Generate CAD Model.
+
+    # When section == "Model", also ensure per-part shapes exist and prepare a compound
+    # Try to include additional subparts like Welds and Bolts if available
+    part_names = ["Beam", "Column", "Plate", "Weld", "Welds", "Bolt", "Bolts"]
+    part_files = {}
+    compound_model = None
+
+    try:
+        if section == "Model":
+            # Build compound by adding each part shape without fusing
+            builder = BRep_Builder()
+            compound = TopoDS_Compound()
+            builder.MakeCompound(compound)
+
+            for part in part_names:
+                try:
+                    # Generate shape for this part
+                    cld.component = part
+                    part_shape = cld.create2Dcad()
+                    if part_shape is None:
+                        continue
+
+                    # Add to compound
+                    builder.Add(compound, part_shape)
+
+                    # Ensure per-part BREP file exists (write or overwrite)
+                    part_file_name = f"{session}_{part}.brep"
+                    part_file_path_rel = os.path.join("file_storage", "cad_models", part_file_name)
+                    BRepTools.breptools.Write(part_shape, part_file_path_rel, Message_ProgressRange())
+                    part_files[part] = part_file_path_rel
+                except Exception as e:
+                    print(f"Failed to build/write part {part}: {e}")
+
+            # Reset component to Model and set compound as the model to write
+            cld.component = section
+            compound_model = compound
+        # Generate model for non-Model sections (or fallback)
+        if compound_model is not None:
+            model = compound_model
+        else:
+            model = cld.create2Dcad()
     except Exception as e :
         print('Error in cld.create2Dcad() e : ' , e)
         return False
@@ -430,9 +506,25 @@ def create_cad_model(input_values: Dict[str, Any], section: str, session: str) -
 
     try : 
         BRepTools.breptools.Write(model, file_path, Message_ProgressRange()) # Generate CAD Model
-        
-        # Only if it's 'Model' section, save extra formats
+
+        # If it's 'Model' section, write a manifest referencing per-part breps and save extra formats
         if section == "Model":
+            try:
+                manifest = {
+                    "session": session,
+                    "mergedBrep": file_path,
+                    "parts": [
+                        {"name": name, "brepPath": part_files.get(name)} for name in part_names if part_files.get(name)
+                    ]
+                }
+                manifest_path = file_path.replace(".brep", ".parts.json")
+                full_manifest_path = os.path.join(os.getcwd(), manifest_path)
+                with open(full_manifest_path, "w", encoding="utf-8") as mf:
+                    json.dump(manifest, mf)
+                print(f"Parts manifest saved at {full_manifest_path}")
+            except Exception as me:
+                print(f"Warning: Failed to write manifest: {me}")
+
             # Save STEP
             step_writer = STEPControl_Writer()
             step_writer.Transfer(model, STEPControl_AsIs)

@@ -15,7 +15,7 @@ class SeatedAngleInputData(InputDataBase):
 
         try:
             # Connectivity List
-            response['connectivityList'] = ['Column Flange-Beam-Web', 'Column Web-Beam-Web', 'Beam-Beam']
+            response['connectivityList'] = ['Column Flange-Beam-Web', 'Column Web-Beam-Web']
 
             # Column and Beam Lists
             response['columnList'] = list(Columns.objects.values_list('Designation', flat=True))
@@ -37,6 +37,7 @@ class SeatedAngleInputData(InputDataBase):
             boltList = list(Bolt.objects.values_list('Bolt_diameter', flat=True))
             boltList.sort()
             response['boltDiameterList'] = boltList
+            response['boltTypeList'] = ['Bearing Bolt', 'Friction Grip Bolt']
 
             # Property Class List
             response['propertyClassList'] = ['3.6', '4.6', '4.8', '5.6', '5.8', '6.8', '8.8', '9.8', '10.9', '12.9']

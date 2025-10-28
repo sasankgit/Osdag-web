@@ -52,10 +52,10 @@ class CADGeneration(View):
             
             # Determine session type from module_id
             module_type_mapping = {
-                "Fin-Plate-Connection": "FinPlate",
+                "FinPlateConnection": "FinPlateConnection",
                 "Cleat-Angle-Connection": "CleatAngle", 
                 "End-Plate-Connection": "EndPlate",
-                "Seated-Angle-Connection": "SeatedAngle",
+                "SeatedAngleConnection": "SeatedAngleConnection",
                 "Cover-Plate-Bolted-Connection": "CoverPlateBolted",
                 "Beam-Beam-End-Plate-Connection": "BeamBeamEndPlate",
                 "Cover-Plate-Welded-Connection": "CoverPlateWelded",
@@ -73,26 +73,30 @@ class CADGeneration(View):
             return JsonResponse({"status": "error", "message": f"Error parsing request: {str(e)}"}, status=500)
         
         # Check for FreeCAD availability
-        command = shutil.which("FreeCADCmd")
+        # command = shutil.which("FreeCADCmd")
+        command = "/usr/bin/freecad" 
         print(f"Detected FreeCADCmd path: {command}")
-        command = "D:\\Program Files\\FreeCAD 1.0\\bin\\freecadcmd.exe"
+        # command = "D:\\Program Files\\FreeCAD 1.0\\bin\\freecadcmd.exe"
 
         if not command:
-            return JsonResponse({"status": "error", "message": "FreeCAD is not installed or not in system PATH."}, status=500)
+            # Service unavailable: dependency missing
+            return JsonResponse({"status": "error", "message": "FreeCAD is not installed or not available on server."}, status=503)
         
         # Directory setup
         current_dir = os.path.dirname(os.path.abspath(__file__))
         parent_dir = os.path.dirname(os.path.dirname(current_dir))
         macro_path = os.path.join(parent_dir, 'freecad_utils/open_brep_file.FCMacro')
+        if not os.path.exists(macro_path):
+            return JsonResponse({"status": "error", "message": f"Required macro not found at: {macro_path}"}, status=500)
     
         # Determine sections based on the session type and what each backend module expects
-        if session_type == "FinPlate":
+        if session_type == "FinPlateConnection":
             sections = ["Model", "Beam", "Column", "Plate"]
         elif session_type == "CleatAngle":
-            sections = ["Model", "Beam", "Column", "CleatAngle"]
+            sections = ["Model", "Beam", "Column", "cleatAngle"]
         elif session_type == "EndPlate":
             sections = ["Model", "Beam", "Column", "Plate"]
-        elif session_type == "SeatedAngle":
+        elif session_type == "SeatedAngleConnection":
             sections = ["Model", "Beam", "Column", "SeatedAngle"]
         elif session_type == "CoverPlateBolted":
             sections = ["Model", "Beam", "Plate"]
@@ -107,8 +111,9 @@ class CADGeneration(View):
         else:
             return JsonResponse({"status": "error", "message": "Unknown module type"}, status=400)
         
-        # initialize the empty dictionary to hold model data
+        # initialize the empty dictionary to hold model data and collect errors
         output_files = {}
+        error_details = []
         print("Design sections: ", sections)
         
         # Generate a unique session identifier for this CAD generation
@@ -118,6 +123,9 @@ class CADGeneration(View):
         for section in sections:
             print(f'Generating section: {section}')
             try:
+                if not hasattr(module_api, 'create_cad_model'):
+                    error_details.append({"section": section, "error": "create_cad_model not implemented"})
+                    continue
                 path = module_api.create_cad_model(input_values, section, session_id)
 
                 if not path:
@@ -129,18 +137,28 @@ class CADGeneration(View):
                 # Convert and store file paths
                 path_to_file = os.path.join(parent_dir, path)
                 if not os.path.exists(path_to_file):
-                    print(f'Generated file for {section} does not exist at: {path_to_file}')
+                    msg = f'Generated file for {section} does not exist at: {path_to_file}'
+                    print(msg)
+                    error_details.append({"section": section, "error": msg})
                     continue
                     
                 output_obj_path = path_to_file.replace(".brep", ".obj")
+                manifest_path = None
+                if section == "Model":
+                    manifest_path = path_to_file.replace(".brep", ".parts.json")
 
                 # Convert .brep to .obj using FreeCAD
-                command_with_arg = f'{command} {macro_path} {path_to_file} {output_obj_path}'
+                if manifest_path and os.path.exists(manifest_path):
+                    command_with_arg = f'{command} {macro_path} {path_to_file} {output_obj_path} {manifest_path}'
+                else:
+                    command_with_arg = f'{command} {macro_path} {path_to_file} {output_obj_path}'
                 process = subprocess.Popen(command_with_arg.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = process.communicate()
 
                 if process.returncode != 0:
-                    print(f"FreeCAD conversion failed for {section}: {stderr.decode().strip()}")
+                    err_msg = stderr.decode().strip() or "Unknown FreeCAD conversion error"
+                    print(f"FreeCAD conversion failed for {section}: {err_msg}")
+                    error_details.append({"section": section, "error": f"FreeCAD conversion failed: {err_msg}"})
                     continue
                 
                 # Read the generated .obj file into BytesIO
@@ -152,12 +170,15 @@ class CADGeneration(View):
                 
             except Exception as e:
                 print(f"Exception while generating {section}: {e}")
+                error_details.append({"section": section, "error": str(e)})
                 
         if not output_files:
-            return JsonResponse({"status": "error", "message": "No CAD models were generated."}, status=500)
+            # Unprocessable due to inputs or environment; include details to aid debugging
+            return JsonResponse({"status": "error", "message": "No CAD models were generated.", "errors": error_details}, status=422)
                 
         return JsonResponse({
             "status": "success",
             "files": output_files,
-            "message": "CAD models generated successfully"
+            "message": "CAD models generated successfully",
+            "warnings": error_details  # include any partial failures
         }, status=201)

@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { ModuleContext } from "../../../context/ModuleState";
+import { MODULE_KEY_FIN_PLATE } from "../../../constants/DesignKeys";
 
 export const useEngineeringModule = (moduleConfig) => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export const useEngineeringModule = (moduleConfig) => {
     boltDiameterList,
     thicknessList,
     propertyClassList,
+    angleList, // FIXED: Added angleList from context
     boltTypeList,
     designLogs,
     designData,
@@ -43,6 +45,83 @@ export const useEngineeringModule = (moduleConfig) => {
   const [modelKey, setModelKey] = useState(0);
 
   // Sync local output/logs/display with context design results
+  useEffect(() => {
+    // Prefill inputs from sessionStorage if available
+    try {
+      const moduleKey = moduleConfig.cameraKey || moduleConfig.moduleKey || moduleConfig.designType;
+      if (moduleKey) {
+        const raw = sessionStorage.getItem(`prefill:${moduleKey}`);
+        if (raw) {
+          const uiObj = JSON.parse(raw);
+          // Optional: allow per-module mapping via moduleConfig.osiKeyMap
+          const baseDefaults = moduleConfig.defaultInputs || {};
+          const osiKeyMap = moduleConfig.osiKeyMap || {};
+
+          // Build normalized inputs: only keys present in defaults
+          const normalized = {};
+          const addIfPresent = (inputKey, value) => {
+            if (value === undefined || value === null) return;
+            // Array handling: take first element
+            const val = Array.isArray(value) ? (value.length ? value[0] : undefined) : value;
+            if (val === undefined) return;
+            // Coerce to string for number/text fields as this UI primarily holds strings
+            normalized[inputKey] = typeof val === 'string' ? val : String(val);
+          };
+
+          // Iterate default input keys and try to find corresponding values in uiObj
+          for (const inputKey of Object.keys(baseDefaults)) {
+            // 1) Mapped key from .osi if provided
+            const mappedOsiKey = osiKeyMap[inputKey];
+            if (mappedOsiKey && Object.prototype.hasOwnProperty.call(uiObj, mappedOsiKey)) {
+              addIfPresent(inputKey, uiObj[mappedOsiKey]);
+              continue;
+            }
+            // 2) Heuristic: Dot-notated keys in .osi sometimes match with space/different casing
+            // Try direct exact match
+            if (Object.prototype.hasOwnProperty.call(uiObj, inputKey)) {
+              addIfPresent(inputKey, uiObj[inputKey]);
+              continue;
+            }
+            // 3) Simple aliases for common fields
+            const aliases = {
+              bolt_hole_type: 'Bolt.Bolt_Hole_Type',
+              bolt_diameter: 'Bolt.Diameter',
+              bolt_grade: 'Bolt.Grade',
+              bolt_slip_factor: 'Bolt.Slip_Factor',
+              bolt_type: 'Bolt.Type',
+              connector_material: 'Connector.Material',
+              design_method: 'Design.Design_Method',
+              detailing_edge_type: 'Detailing.Edge_type',
+              detailing_gap: 'Detailing.Gap',
+              detailing_corr_status: 'Detailing.Corrosive_Influences',
+              load_axial: 'Load.Axial',
+              load_shear: 'Load.Shear',
+              plate_thickness: 'Connector.Plate.Thickness_List',
+              beam_section: 'Member.Supported_Section.Designation',
+              column_section: 'Member.Supporting_Section.Designation',
+              supported_material: 'Member.Supported_Section.Material',
+              supporting_material: 'Member.Supporting_Section.Material',
+            };
+            const aliasKey = aliases[inputKey];
+            if (aliasKey && Object.prototype.hasOwnProperty.call(uiObj, aliasKey)) {
+              addIfPresent(inputKey, uiObj[aliasKey]);
+              continue;
+            }
+          }
+
+          if (Object.keys(normalized).length > 0) {
+            setInputs({ ...baseDefaults, ...normalized });
+          }
+          // Clear the prefill once read
+          sessionStorage.removeItem(`prefill:${moduleKey}`);
+        }
+      }
+    } catch (e) {
+      console.warn('Prefill from OSI failed:', e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (designData && Object.keys(designData).length > 0) {
       console.log("[useEngineeringModule] useEffect output::", designData);
@@ -88,7 +167,7 @@ export const useEngineeringModule = (moduleConfig) => {
 
   // Initialize extraState based on module type
   const getInitialExtraState = () => {
-    if (moduleConfig.cameraKey === "FinPlate") {
+    if (moduleConfig.cameraKey === MODULE_KEY_FIN_PLATE) {
       return {
         selectedOption: "Column Flange-Beam-Web", // Default for FinPlate
       };
@@ -98,7 +177,7 @@ export const useEngineeringModule = (moduleConfig) => {
       };
     }
     return {
-      selectedOption: "Flushed - Reversible Moment", // Default for BeamBeamEndPlate
+      selectedOption: "Column Flange-Beam-Web", // FIXED: Default for CleatAngle (changed from endplate default)
     };
   };
 
@@ -107,7 +186,7 @@ export const useEngineeringModule = (moduleConfig) => {
   // On mount: Load module data using simplified API with enhanced error handling
   useEffect(() => {
     const loadModuleData = async () => {
-      console.log('🔍 [ENGINEERING MODULE] Loading module data for:', moduleConfig?.designType);
+      console.log('📋 [ENGINEERING MODULE] Loading module data for:', moduleConfig?.designType);
 
       if (!moduleConfig?.designType) {
         console.warn('⚠️ [ENGINEERING MODULE] No moduleConfig or designType available');
@@ -325,21 +404,21 @@ export const useEngineeringModule = (moduleConfig) => {
   // Get supported data when member designation changes (BeamBeamEndPlate) - Using simplified API
   useEffect(() => {
     const loadSupportedData = async () => {
-      if (inputs.member_designation && moduleConfig.cameraKey !== "FinPlate" && manageDesignPreferences) {
+      if (inputs.member_designation && moduleConfig.cameraKey !== MODULE_KEY_FIN_PLATE && moduleConfig.cameraKey !== MODULE_KEY_CLEAT_ANGLE && manageDesignPreferences) {
         try {
-          console.log('🔧 [ENGINEERING MODULE] Loading supported data for:', inputs.member_designation);
+          console.log('Loading supported data for:', inputs.member_designation);
 
           const result = await manageDesignPreferences('get', {
             supported_section: inputs.member_designation,
           });
 
           if (result && result.success) {
-            console.log('✅ [ENGINEERING MODULE] Supported data loaded successfully');
+            console.log('Supported data loaded successfully');
           } else {
-            console.error('❌ [ENGINEERING MODULE] Failed to load supported data:', result?.error);
+            console.error('Failed to load supported data:', result?.error);
           }
         } catch (error) {
-          console.error('❌ [ENGINEERING MODULE] Exception loading supported data:', error);
+          console.error('Exception loading supported data:', error);
         }
       }
     };
@@ -347,10 +426,10 @@ export const useEngineeringModule = (moduleConfig) => {
     loadSupportedData();
   }, [inputs.member_designation, manageDesignPreferences, moduleConfig.cameraKey]);
 
-  // Get design preferences data for FinPlate - Using simplified API
+  // Get design preferences data for FinPlate and CleatAngle - Using simplified API
   useEffect(() => {
     const loadDesignPreferences = async () => {
-      if (moduleConfig.cameraKey === "FinPlate" && manageDesignPreferences) {
+      if ((moduleConfig.cameraKey === MODULE_KEY_FIN_PLATE || moduleConfig.cameraKey === MODULE_KEY_CLEAT_ANGLE) && manageDesignPreferences) {
         const conn_map = {
           "Column Flange-Beam-Web": "Column Flange-Beam Web",
           "Column Web-Beam-Web": "Column Web-Beam Web",
@@ -381,18 +460,18 @@ export const useEngineeringModule = (moduleConfig) => {
           }
 
           if (params) {
-            console.log('🔧 [ENGINEERING MODULE] Loading design preferences for FinPlate:', params);
+            console.log('Loading design preferences for', moduleConfig.cameraKey, ':', params);
 
             const result = await manageDesignPreferences('get', params);
 
             if (result && result.success) {
-              console.log('✅ [ENGINEERING MODULE] Design preferences loaded successfully');
+              console.log('Design preferences loaded successfully');
             } else {
-              console.error('❌ [ENGINEERING MODULE] Failed to load design preferences:', result?.error);
+              console.error('Failed to load design preferences:', result?.error);
             }
           }
         } catch (error) {
-          console.error('❌ [ENGINEERING MODULE] Exception loading design preferences:', error);
+          console.error('Exception loading design preferences:', error);
         }
       }
     };
@@ -449,7 +528,7 @@ export const useEngineeringModule = (moduleConfig) => {
   };
 
   const handleSubmit = async () => {
-    const validationResult = moduleConfig.validateInputs(inputs);
+    const validationResult = moduleConfig.validateInputs(inputs, extraState);
     if (!validationResult.isValid) {
       alert(validationResult.message);
       return;
@@ -459,6 +538,7 @@ export const useEngineeringModule = (moduleConfig) => {
       boltDiameterList,
       propertyClassList,
       thicknessList,
+      angleList, // FIXED: Added angleList to submission params
     }, extraState);
 
     // Show loading modal
@@ -476,10 +556,14 @@ export const useEngineeringModule = (moduleConfig) => {
         setModelKey((prev) => prev + 1);
       } else {
         setLoading(false);
+        setIsLoadingModalVisible(false);
+        setLoadingStage("");
       }
     } catch (e) {
-      console.error('[ENGINEERING MODULE] Error in design/CAD flow:', e);
+      console.error('Error in design/CAD flow:', e);
       setLoading(false);
+      setIsLoadingModalVisible(false);
+      setLoadingStage("");
     }
   };
 
@@ -530,7 +614,7 @@ export const useEngineeringModule = (moduleConfig) => {
   };
 
   const saveOutput = () => {
-    const validationResult = moduleConfig.validateInputs(inputs);
+    const validationResult = moduleConfig.validateInputs(inputs, extraState);
     if (!validationResult.isValid) {
       alert(validationResult.message);
       return;
@@ -540,6 +624,7 @@ export const useEngineeringModule = (moduleConfig) => {
       boltDiameterList,
       propertyClassList,
       thicknessList,
+      angleList, // FIXED: Added angleList here too
     }, extraState);
 
     // Add output data to the submission data
@@ -580,37 +665,60 @@ export const useEngineeringModule = (moduleConfig) => {
     setCreateDesignReportBool(true);
   };
 
-  const handleOkDesignReport = async () => {
+  const handleOkDesignReport = async (selectedSections = []) => {
     if (!output) {
       alert("Please submit the design first.");
       return;
     }
 
     try {
-      console.log('📄 [ENGINEERING MODULE] Generating design report with simplified API');
+      console.log('Generating design report with simplified API');
 
-      // Use the new simplified generateReport function
-      const result = await generateReport('design_report', {
+      // Build the same submission params used for calculate-output
+      const submissionParams = moduleConfig.buildSubmissionParams(
+        inputs,
+        allSelected,
+        {
+          boltDiameterList,
+          propertyClassList,
+          thicknessList,
+          angleList,
+        },
+        extraState
+      );
+
+      // Prepare payload with selected sections for filtering
+      const payload = {
         ...designReportInputs,
         moduleId: moduleConfig.designType,
-        inputValues: inputs,
+        inputValues: submissionParams,
         designStatus: true,
         logs: logs || [],
-      });
+      };
+
+      // Add sections if provided for customized filtering
+      if (selectedSections && selectedSections.length > 0) {
+        payload.sections = selectedSections;
+      }
+
+      const result = await generateReport('design_report', payload);
 
       if (result && result.success) {
-        console.log('✅ [ENGINEERING MODULE] Design report generated successfully');
+        console.log('Design report generated successfully');
+        // Optionally show success message or further user feedback
       } else {
-        console.error('❌ [ENGINEERING MODULE] Failed to generate design report:', result?.error);
+        console.error('Failed to generate design report:', result?.error);
         alert(`Failed to generate design report: ${result?.error || 'Unknown error'}`);
       }
+
     } catch (error) {
-      console.error('❌ [ENGINEERING MODULE] Exception generating design report:', error);
+      console.error('Exception generating design report:', error);
       alert(`Error generating design report: ${error.message}`);
     }
 
     handleCancelDesignReport();
   };
+
 
   const handleCancelDesignReport = () => {
     setDesignReportInputs({
@@ -639,6 +747,7 @@ export const useEngineeringModule = (moduleConfig) => {
     boltDiameterList,
     thicknessList,
     propertyClassList,
+    angleList, // FIXED: Added angleList to return object
     boltTypeList,
     displayPDF,
     renderCadModel,
