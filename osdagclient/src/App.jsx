@@ -43,7 +43,6 @@ import CoverPlateWelded from "./modules/coverPlateWelded/CoverPlateWelded";
 
 import "./App.css";
 
->>>>>>> b4f71b22a5988deb98a1230a813a1ca77e712cd1
 let renderedOnce = false;
 
 function App() {
@@ -53,55 +52,7 @@ function App() {
       <Route path="/" element={<Root loggedIn={loggedIn} />}>
         {/* Root and home routes */}
         <Route path="/" element={<LoginPage />} />
-<<<<<<< HEAD
-        <Route path="/:moduleName" element={<SelectModulePage />} />
-        <Route path="/design-type/:designType" element={<Window />} />
-        <Route path="/design/connections/shear/fin_plate/:projectId?" element={<FinPlate />} />
-        <Route path="/design/connections/shear/end_plate/:projectId?" element={<EndPlate />} />
-        <Route path="/design/connections/shear/cleat_angle/:projectId?" element={<CleatAngle />} />
-        <Route path="/design/connections/shear/seatAngle/:projectId?" element={<SeatedPlate />} />
-        <Route path="/design/:designType/fin_plate/:projectId?" element={<FinPlate />} />
-        <Route path="/design/:designType/end_plate/:projectId?" element={<EndPlate />} />
-        <Route path="/design/:designType/seatAngle/:projectId?" element={<SeatedPlate />} />
-        <Route
-          path="/design/:designType/seatAngle/:projectId?"
-          element={<SeatedPlate />}
-        />
-        <Route
-          path="/design/:designType/cleat_angle/:projectId?"
-          element={<CleatAngle />}
-        />
-        <Route
-          path="/design/:designType/beam-to-beam-splice/cover_plate_bolted/:projectId?"
-          element={<CoverPlateBolted />}
-        />
-        <Route
-          path="/design/:designType/beam-to-beam-splice/end_plate/:projectId?"
-          element={<BeamBeamEndPlate />}
-        />
-        <Route path="/design/tension-member/bolted_to_end_gusset/:projectId?" element={<BoltedToEnd />} />
 
-
-          <Route
-            path='/design/:designType/bolted_to_end_gusset'
-            element={<BoltedToEnd />}
-          />
-          <Route
-            path="/design/:designType/beam-to-beam-splice/cover_plate_welded/:projectId?"
-            element={<CoverPlateWelded />}
-          />
-          <Route
-            path="/design/:designType/simply_supported_beam/:projectId?"
-            element={<SimplySupportedBeam />}
-          />
-          <Route path="/design/connections/base_plate/:projectId?" element={<BasePlateConnection />} />
-
-          <Route path="/user" element={<UserAccount />} />
-        </Route>
-        )
-        );
-
-=======
         <Route path="/home" element={<Homepage />} />
         <Route path="/user" element={<UserAccount />} />
         <Route path="/:moduleName" element={<SelectModulePage />} />
@@ -116,10 +67,11 @@ function App() {
         <Route path="/design/:designType/beam-to-beam-splice/end_plate/:projectId?" element={<BeamBeamEndPlate />} />
         <Route path="/design/:designType/simply_supported_beam/:projectId?" element={<SimplySupportedBeam />} />
         <Route path="/design/:designType/bolted_to_end_gusset/:projectId?" element={<BoltedToEnd />} />
+        <Route path="/design/connections/base_plate/:projectId?" element={<BasePlateConnection />} />
       </Route>
     )
   );
->>>>>>> b4f71b22a5988deb98a1230a813a1ca77e712cd1
+
 
   return (
     <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
