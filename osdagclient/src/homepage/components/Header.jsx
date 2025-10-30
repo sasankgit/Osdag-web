@@ -185,14 +185,14 @@ const Header = ({ setshowSideBar, active }) => {
             <div className="flex flex-col items-center lg:items-start">
               <picture>
                 {/* This source will be used if the user is in dark mode */}
-                <source srcset="/images/Osdag_label_dark.svg" media="(prefers-color-scheme: dark)" />
+                <source srcSet="/images/Osdag_label_dark.svg" media="(prefers-color-scheme: dark)" />
 
                 {/* This is the default image for light mode and for browsers that don't support the picture tag */}
                 <img src="/images/Osdag_label.svg" alt="Osdag Logo" className="h-20 mt-6" />
               </picture>
               <picture>
                 {/* This source will be used if the user is in dark mode */}
-                <source srcset="/images/Osdag_tagline_dark.svg" media="(prefers-color-scheme: dark)" />
+                <source srcSet="/images/Osdag_tagline_dark.svg" media="(prefers-color-scheme: dark)" />
 
                 {/* This is the default image for light mode and for browsers that don't support the picture tag */}
                 <img src="/images/Osdag_tagline.svg" alt="Osdag Tagline" className="h-8" />
