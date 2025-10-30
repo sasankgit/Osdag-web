@@ -18,7 +18,8 @@ export const InputSection = ({
   toggleAllSelected,
   contextData,
   extraState = {},
-  setExtraState = () => { }
+  setExtraState = () => { },
+  updateSelectedItems = () => { }
 }) => {
   const safeInputs = inputs || {};
   const safeContextData = contextData || {};
@@ -117,20 +118,47 @@ export const InputSection = ({
   const handleCustomizableSelect = (field, value) => {
     const getAllValuesForInputKey = (inputKey) => {
       const keyMap = {
-        'bolt_diameter': 'boltDiameterList', 'bolt_grade': 'propertyClassList',
-        'plate_thickness': 'thicknessList', 'angle_list': 'angleList',
+        'bolt_diameter': 'boltDiameterList',
+        'bolt_grade': 'propertyClassList',
+        'plate_thickness': 'thicknessList',
+        'angle_list': 'angleList',
+        'cleat_section': 'angleList', // <-- PATCHED: point to angleList for cleat_section
       };
       const listName = keyMap[inputKey];
       return Array.isArray(safeContextData[listName]) ? safeContextData[listName] : [];
     };
 
     if (value === "Customized") {
-      setInputs({ ...safeInputs, [field.key]: [] });
+      // Get all available values
+      const allValues = getAllValuesForInputKey(field.key);
+      // Convert to array of keys/strings for Transfer component
+      const allKeys = allValues.map(val => {
+        // Handle different data formats (object with value/Grade property, or plain string/number)
+        if (typeof val === 'object' && val !== null) {
+          return val.value || val.Grade || val.toString();
+        }
+        return val.toString();
+      });
+      
+      // Set all items as selected (moved to right side) - this populates the Transfer component
+      updateSelectedItems(field.key, allKeys);
+      // Also update inputs with all values
+      setInputs({ ...safeInputs, [field.key]: allKeys });
       updateSelectionState(field.selectionKey, "Customized");
       updateModalState(field.modalKey, true);
     } else {
+      // "All" option - get all values and set them in inputs 
       const allValues = getAllValuesForInputKey(field.key);
-      setInputs({ ...safeInputs, [field.key]: allValues });
+      // Convert to array format if needed
+      const allValuesArray = allValues.map(val => {
+        if (typeof val === 'object' && val !== null) {
+          return val.value || val.Grade || val.toString();
+        }
+        return val.toString();
+      });
+      setInputs({ ...safeInputs, [field.key]: allValuesArray });
+      // Clear selectedItems since we're using "All" (not managed via Transfer)
+      updateSelectedItems(field.key, []);
       updateSelectionState(field.selectionKey, "All");
       updateModalState(field.modalKey, false);
     }
@@ -269,25 +297,29 @@ export const InputSection = ({
         {section.title}
       </h3>
       <div className="flex flex-col w-full p-4 pt-2">
-        {section.fields.map((field, index) => (
-          <div key={index}>
-            <div className="flex w-full justify-between items-center mb-3">
-              <h4 className="w-[40%] text-sm font-medium text-osdag-text-primary dark:text-white">
-                {field.label}
-            </h4>
-              {renderField(field)}
-            </div>
-            {(field.type === 'connectivitySelect' || field.type === 'endPlateSelect') && imageSource && (
-              <div className="flex justify-center">
-                <img
-                  src={imageSource}
-                  alt="Connection type"
-                  className="w-[100px] h-[100px] object-contain"
-                />
+        {section.fields.map((field, index) => {
+          // Entire label+input row is hidden if conditionalDisplay fails
+          if (field.conditionalDisplay && !field.conditionalDisplay(extraState)) return null;
+          return (
+            <div key={index}>
+              <div className="flex w-full justify-between items-center mb-3">
+                <h4 className="w-[40%] text-sm font-medium text-osdag-text-primary dark:text-white">
+                  {field.label}
+                </h4>
+                {renderField(field)}
               </div>
-            )}
-          </div>
-        ))}
+              {(field.type === 'connectivitySelect' || field.type === 'endPlateSelect') && imageSource && (
+                <div className="flex justify-center">
+                  <img
+                    src={imageSource}
+                    alt="Connection type"
+                    className="w-[100px] h-[100px] object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

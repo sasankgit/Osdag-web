@@ -170,7 +170,7 @@ function SeatedAngle() {
   const [modelKey, setModelKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selectedView, setSelectedView] = useState("Model");
-  const options = ["Model", "Beam", "Column", "SeatAngle"];
+  const options = ["Model", "Beam", "Column", "SeatedAngle"];
   const [screenshotTrigger, setScreenshotTrigger] = useState(false);
   const triggerScreenshotCapture = () => {
     setScreenshotTrigger(true);
@@ -287,7 +287,6 @@ function SeatedAngle() {
       try {
         setLogs(designLogs);
       } catch (error) {
-        console.log(error);
         setOutput(null);
       }
     }
@@ -309,9 +308,7 @@ function SeatedAngle() {
         }
 
         setOutput(formatedOutput);
-        console.log("formated Output", formatedOutput);
       } catch (error) {
-        console.log(error);
         setOutput(null);
       }
     }
@@ -319,7 +316,6 @@ function SeatedAngle() {
 
   const handleSubmit = async () => {
     let param = {};
-    console.log(allSelected, boltDiameterList);
     if (
       selectedOption === "Column Flange-Beam-Web" ||
       selectedOption === "Column Web-Beam-Web"
@@ -403,8 +399,6 @@ function SeatedAngle() {
     //       connectorTopSelect == "All" ? topAngleList : inputs.topangle_list,
     //   };
     // }
-
-    console.log("Final Params: ", param);
 
     try {
       await createDesign(param, "Seated-Angle-Connection");
@@ -492,7 +486,6 @@ function SeatedAngle() {
 
   useEffect(() => {
     if (renderCadModel && cadModelPaths) {
-      console.log("Received raw .obj data:", cadModelPaths);
       setRenderBoolean(true);
       setLoading(false);
     } else {
@@ -522,7 +515,6 @@ function SeatedAngle() {
       alert("Please submit the design first.");
       return;
     }
-    console.log("designreportInputs : ", designReportInputs);
     createDesignReport(designReportInputs);
     handleCancelProfile();
   };
@@ -810,35 +802,6 @@ function SeatedAngle() {
     inputs.secondary_beam,
     selectedOption,
   ]);
-
-  const obtainStoredCompanyLogoImages = () => {
-    console.log("obtain stored company logo images");
-
-    // obtaining the companyLogo
-    if (
-      localStorage.getItem("companyLogo") &&
-      localStorage.getItem("companyLogoName")
-    ) {
-      let storedCompanyLogo = localStorage.getItem("companyLogo");
-      storedCompanyLogo = JSON.parse(storedCompanyLogo);
-      // stored CompanyLogo is an array, it comtains the actual file
-      // the file is encoded. decode it as given below
-      // let companyLogo = base64_decode(storedCompanyLogo[0])
-
-      let storedCompanyLogoName = localStorage.getItem("companyLogoName");
-      storedCompanyLogoName = JSON.parse(storedCompanyLogoName);
-      // stored companylogoName is an array, it contains the name of the files
-      // the fileNaeme is encoded. decode it as given belows
-      // let companyLogoName = base64_decode(storedCompanyLogoName[0])
-
-      // an image consists of 2 parts, the companyLogo and the companyLogoName
-      // so the 0th index image will be formed by ( storedCompanyLogo[0] and storedCompanyLogoName[0] )
-      // the 1st index image will be formed by ( storedCompanyLogo[1] and storedCompanyLogoName[1] )
-    }
-  };
-
-  // console.log(angleList);
-  // console.log("topAngleList:", topAngleList);
   const navigate = useNavigate();
   return (
     <>
@@ -996,7 +959,6 @@ function SeatedAngle() {
                       const material = materialList.find(
                         (item) => item.id === value
                       );
-                      console.log(material);
                       setInputs({
                         ...inputs,
                         connector_material: material.Grade,
@@ -1055,6 +1017,7 @@ function SeatedAngle() {
                   footer={null}
                   width={500}
                   height={500}
+                  className="[&_.ant-modal-header]:bg-transparent [&_.ant-modal-close]:right-4"
                 >
                   <div className="popUp">
                     <h3>Customized</h3>
@@ -1107,6 +1070,7 @@ function SeatedAngle() {
                   footer={null}
                   width={500}
                   height={500}
+                  className="[&_.ant-modal-header]:bg-transparent [&_.ant-modal-close]:right-4"
                 >
                   <div className="popUp">
                     <h3>Customized</h3>
@@ -1148,6 +1112,7 @@ function SeatedAngle() {
                   footer={null}
                   width={500}
                   height={500}
+                  className="[&_.ant-modal-header]:bg-transparent [&_.ant-modal-close]:right-4"
                 >
                   <div className="popUp">
                     <h3>Customized</h3>
@@ -1187,6 +1152,7 @@ function SeatedAngle() {
                   footer={null}
                   width={500}
                   height={500}
+                  className="[&_.ant-modal-header]:bg-transparent [&_.ant-modal-close]:right-4"
                 >
                   <div className="popUp">
                     <h3>Customized</h3>
@@ -1254,7 +1220,7 @@ function SeatedAngle() {
                   style={{ background: "#ADD8E6" }}
                   camera={{
                     position: [10, 0, 10],
-                    fov: 50,
+                    fov: 30,
                     near: 0.1,
                     far: 1000,
                   }}
@@ -1287,13 +1253,19 @@ function SeatedAngle() {
           {/* Right */}
           <div className="superMain_right">
             {<SeatedAngleOutputDock output={output} />}
-            <div className="outputdock-btn">
+            <div className="flex flex-col gap-4 p-[10px] mx-[20%]">
               <Input
                 type="button"
                 value="Create Design Report"
                 onClick={handleCreateDesignReport}
+                className="bg-osdag-green hover:bg-osdag-light-green text-white font-medium py-3 px-4 rounded-lg cursor-pointer transition-all duration-200"
               />
-              <Input type="button" value="Save Output" onClick={saveOutput} />
+              <Input
+                type="button"
+                value="Save Output"
+                onClick={saveOutput}
+                className="bg-osdag-green hover:bg-osdag-light-green text-white font-medium py-3 px-4 rounded-lg cursor-pointer transition-all duration-200"
+              />
 
               <Modal
                 open={CreateDesignReportBool}
