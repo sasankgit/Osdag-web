@@ -91,6 +91,7 @@ export const MODULE_ROUTES = {
     BeamBeamEndPlate: "/design/connections/beam-to-beam-splice/end_plate",
     SimplySupportedBeam: "/design/flexure_member/simply_supported_beam",
     BoltedToEndGusset: "/design/tension-member/bolted_to_end_gusset",
+    BasePlateConnection:"/design/connections/base_plate/:projectId?"
     // Add other needed routes
 };
 
