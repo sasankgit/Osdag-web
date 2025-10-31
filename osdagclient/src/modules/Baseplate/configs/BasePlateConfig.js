@@ -1,5 +1,5 @@
 import { UI_STRINGS } from './UIStrings';
-import { MODULE_KEY_FIN_PLATE, MODULE_DISPLAY_FIN_PLATE } from '../../../../constants/DesignKeys';
+import { MODULE_KEY_FIN_PLATE, MODULE_DISPLAY_FIN_PLATE } from '../../../constants/DesignKeys';
 
 export const finPlateConfig = {
   sessionName: MODULE_DISPLAY_FIN_PLATE,
@@ -70,6 +70,7 @@ export const finPlateConfig = {
       "Column Flange-Beam-Web": "Column Flange-Beam Web",
       "Column Web-Beam-Web": "Column Web-Beam Web",
       "Beam-Beam": "Beam-Beam",
+      
     };
 
     const connectivity = extraState?.selectedOption || inputs.connectivity;

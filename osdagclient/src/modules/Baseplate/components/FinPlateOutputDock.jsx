@@ -1,7 +1,7 @@
 import React from "react";
-import { BaseOutputDock } from "../../../shared/components/BaseOutputDock";
-import { finPlateOutputConfig } from "../configs/finPlateOutputConfig";
-import { UI_STRINGS } from '../../../../constants/UIStrings';
+import { BaseOutputDock } from "../../shared/components/BaseOutputDock";
+import { finPlateOutputConfig } from "../configs/BasePlateOutputConfig";
+import { UI_STRINGS } from '../../../constants/UIStrings';
 
 const FinPlateOutputDock = ({ output, extraState }) => {
   console.log("FinPlateOutputDock received:", { output, extraState });

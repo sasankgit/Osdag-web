@@ -1,29 +1,77 @@
 export const finPlateOutputConfig = {
   sections: {
-    "Bolt": [
+    "Anchor Bold - Outside Column Flange": [
       { key: "Bolt.Diameter", label: "Diameter (mm)" },
       { key: "Bolt.Grade", label: "Property Class" },
+      { key: "Bolt.Grade", label: "No of anchors" },// key to be set for anchors 
       { key: "Bolt.Shear", label: "Shear Capacity (kN)" },
       { key: "Bolt.Bearing", label: "Bearing Capacity (kN)" },
-      { key: "Bolt.Capacity", label: "Capacity (kN)" },
-      { key: "Bolt.Force (kN)", label: "Bolt Force (kN)" },
-      { key: "Bolt.Line", label: "Bolt Columns (nos)" },
-      { key: "Bolt.OneLine", label: "Bolt Rows (nos)" },
-      { key: "SpacingModal", label: "Spacing" },
+      { key: "Bolt.Capacity", label: "Bolt Capacity (kN)" },
+      { key: "Bolt.Grade", label: "Tension Demand" },//key to be set
+      { key: "Bolt.Grade", label: "Tension Capacity" },//key to be set
+      { key: "Bolt.Grade", label: "Combined capacity" },//key to be set
+      { key: "SpacingModal", label: "Anchor Length(mm)" },//key to be set
     ],
-    "Plate": [
+    "Anchor Bold - Inside Column Flange": [
+      { key: "Bolt.Diameter", label: "Diameter (mm)" },//might need key to be set
+      { key: "Bolt.Grade", label: "Property Class" },
+      { key: "Bolt.Grade", label: "No of anchors" },// key to be set for anchors 
+      { key: "Bolt.Grade", label: "Tension Demand(kN)" },//key to be set
+      { key: "Bolt.Grade", label: "Tension Capacity(kN)" },//key to be set
+      { key: "SpacingModal", label: "Anchor Length(mm)" },//key to be set
+    ],
+    
+    "Base Plate Connection": [
       { key: "Plate.Thickness", label: "Thickness (mm)" },
-      { key: "Plate.Height", label: "Height (mm)" },
       { key: "Plate.Length", label: "Length (mm)" },
-      { key: "PlateCapacityModal", label: "Capacity" },
+      { key: "Plate.Height", label: "width(mm)" },//key to be changed
+      { key: "Plate.Height", label: "Bearing Stress(Mpa)" },//key to be changed
+      { key: "Plate.Height", label: "Moment Demand(kNm)" },//key to be changed
+      { key: "Plate.Height", label: "Typical Sketch" },//key to be changed
     ],
-    "Section Details": [
-      { key: "SectionCapacityModal", label: "Capacity" },
+    "Details - Outside Column Flange": [
+      { key: "Plate.Thickness", label: "End Distance(mm)" },
+      { key: "Plate.Length", label: "Edge Distance(mm)" },
+      { key: "Plate.Height", label: "Pitch Distance(mm)" },//key to be changed
+      { key: "Plate.Height", label: "Gauge Distance(Mpa)" },//key to be changed
+      { key: "Plate.Height", label: "Effecie Projection(mm)" },//key to be changed
+      
     ],
+    "Details - Inside Column Flange": [
+      { key: "Plate.Thickness", label: "End Distance(mm)" },
+      { key: "Plate.Length", label: "Edge Distance(mm)" },
+      { key: "Plate.Height", label: "Pitch Distance(mm)" },//key to be changed
+      { key: "Plate.Height", label: "Gauge Distance(Mpa)" },//key to be changed
+      
+      
+    ],
+    "Details": [
+      { key: "SectionCapacityModal", label: "Typical Detailing" },
+    ],
+    "Stiffener Plate along Column flange": [
+      { key: "SectionCapacityModal", label: "Stiffener Plate" },
+    ],
+    "Stiffener Plate along Column Web": [
+      { key: "SectionCapacityModal", label: "Stiffener Plate" },
+    ],
+    "Stiffener Plate across Column Web": [
+      { key: "SectionCapacityModal", label: "Stiffener Plate" },
+    ],
+    "Stiffener Plate": [
+      { key: "SectionCapacityModal", label: "Stiffener Plate" },
+    ],
+    "Shrear Design": [
+      { key: "SectionCapacityModal", label: "Shrear Resistance(kN)" },
+      { key: "SectionCapacityModal", label: "Key Required?" },
+      { key: "SectionCapacityModal", label: "Shear Key" },
+      { key: "SectionCapacityModal", label: "Typical Details" },
+    ],
+  
     "Weld": [
-      { key: "Weld.Size", label: "Size (mm)" },
-      { key: "Weld.Strength", label: "Strength (N/mm2)" },
-      { key: "Weld.Stress", label: "Stress (N/mm)" },
+      { key: "Weld.Size", label: "Size at Flange(mm)" },
+      { key: "Weld.Strength", label: "Size at Web(mm)" },
+      { key: "Weld.Stress", label: "Size at stiffener(mm)" },
+      { key: "SectionCapacityModal", label: "Weld" },
     ],
   },
 

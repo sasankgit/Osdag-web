@@ -26,7 +26,7 @@ import CleatAngle from "./modules/shearConnection/cleatAngle/CleatAngle";
 import EndPlate from "./modules/shearConnection/endPlate/EndPlate";
 
 //baseplate module
-import BasePlateConnection from "./modules/shearConnection/Baseplate/BasePlate";
+import BasePlateConnection from "./modules/Baseplate/BasePlate";
 
 import SeatedAngle from "./modules/shearConnection/seatAngle/SeatedAngle";
 
