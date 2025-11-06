@@ -47,7 +47,7 @@ export const CONNECTIONS_TAB_CONTENT = {
     BasePlate: [
         {
             label: "Base Plates",
-            options: [{ key: "BasePlateConnection", label: "Base Plate Connection", img: "shear_fin_plate_connec.svg" }],
+            options: [{ key: "BasePlateConnection", label: "Base Plate Connection", img: "Base_plate.png" }],
         },
     ],
     Truss: [{ label: "Truss Connections", options: [] }],
