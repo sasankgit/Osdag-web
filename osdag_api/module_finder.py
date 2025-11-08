@@ -42,6 +42,7 @@ module_dict : Dict[str, ModuleApiType] = {
     'Beam-to-Column-End-Plate-Connection': beam_column_end_plate,
     'Tension-Member-Bolted-Design': bolted_tension_member,
     'Simply-Supported-Beam': simply_supported_beam,
+    'Base-Plate-Connection': base_plate_connection,
 } 
 
 def get_module_api(module_id: str) -> ModuleApiType:

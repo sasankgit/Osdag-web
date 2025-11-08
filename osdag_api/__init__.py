@@ -10,7 +10,8 @@ developed_modules = [
     "Beam-Beam-End-Plate-Connection",
     "Beam-to-Column-End-Plate-Connection",
     "Tension-Member-Bolted-Design",
-    "Simply-Supported-Beam"
+    "Simply-Supported-Beam",
+    "Base-Plate-Connection"
 ]
 
 module_dict = [
@@ -73,5 +74,11 @@ module_dict = [
         "image": "/static/images/modules/simply_supported_beam.png",
         "name": "Simply Supported Beam",
         "path": "Flexural Member/simply_supported_beam"
+    },
+    {
+        "Key":"Base-Plate-Connection",
+        "image":"/static/images/modules/base_plate_connection.png",
+        "name": "Base Plate Connection",
+        "path": "Connection/Base Plate" #need to check path later
     }
 ]
