@@ -93,3 +93,7 @@ export const MODULE_DISPLAY_FIN_PLATE = 'FinPlateConnection'; // display name fo
 export const MODULE_KEY_CLEAT_ANGLE = 'Cleat-Angle-Connection';
 export const MODULE_DISPLAY_CLEAT_ANGLE = 'Cleat-Angle-Connection';
 export const MODULE_DISPLAY_SEAT_ANGLE = 'SeatedAngleConnection'; // display name for UI 
+
+//Module Keys - Baseplate
+export const MODULE_KEY_BASE_PLATE = 'Base-Plate-connection';  
+export const MODULE_DISPLAY_BASE_PLATE = 'Base Plate Connection';

@@ -127,6 +127,8 @@ urlpatterns = [
          TensionMemberBoltedOutputData.as_view(),name="Tension-Member-Bolted-Design"),
     path('calculate-output/Simply-Supported-Beam',
          SimplySupportedBeamOutputData.as_view(), name="Simply-Supported-Beam"),
+     path('calculate-output/Base-Plate-Connection',
+         BasePlateConnectionOutputData.as_view(), name="Base-Plate-Connection"),
     
     # Report customization API endpoints
     path('api/report/generate-initial/', GenerateInitialReport.as_view(), name='generate-initial-report'),

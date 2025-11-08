@@ -47,7 +47,7 @@ export const CONNECTIONS_TAB_CONTENT = {
     BasePlate: [
         {
             label: "Base Plates",
-            options: [{ key: "BasePlateConnection", label: "Base Plate Connection", img: "Base_plate.png" }],
+            options: [{ key: "Base-Plate-Connection", label: "Base Plate Connection", img: "Base_plate.png" }],
         },
     ],
     Truss: [{ label: "Truss Connections", options: [] }],
@@ -104,4 +104,6 @@ export const MODULE_NAME_TO_KEY = {
     "Shear Connection - Seated Angle": "SeatedAngle",
     // Tension Members
     "Tension Member Bolted Design": "BoltedToEndGusset",
+    "Base Plate Connection": "Base-Plate-connection",
+    
 };

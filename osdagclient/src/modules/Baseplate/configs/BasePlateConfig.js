@@ -1,133 +1,196 @@
 import { UI_STRINGS } from './UIStrings';
-import { MODULE_KEY_FIN_PLATE, MODULE_DISPLAY_FIN_PLATE } from '../../../constants/DesignKeys';
+import { MODULE_KEY_BASE_PLATE, MODULE_DISPLAY_BASE_PLATE } from '../../../constants/DesignKeys';
 
-export const finPlateConfig = {
-  sessionName: MODULE_DISPLAY_FIN_PLATE,
-  routePath: "/design/connections/shear/fin_plate",
-  designType: MODULE_KEY_FIN_PLATE,
-  cameraKey: "FinPlate",
-  cadOptions: ["Model", "Beam", "Column", "Plate"],
+export const basePlateConfig = {
+  sessionName: MODULE_DISPLAY_BASE_PLATE,
+  routePath: "/design/connections/base_plate/:projectId?", 
+  designType: MODULE_KEY_BASE_PLATE, 
+  cameraKey: "BasePlateConnection",  
+  cadOptions: ["Model", "Column", "BasePlate", "Anchor"],
   
   defaultInputs: {
-    bolt_diameter: [],
-    bolt_grade: [],
-    bolt_type: "Bearing Bolt",
-    connector_material: "E 250 (Fe 410 W)A",
-    load_shear: "70",
-    load_axial: "30",
-    module: MODULE_KEY_FIN_PLATE,
-    plate_thickness: [],
-    beam_section: "MB 300",
-    column_section: "HB 150",
-    primary_beam: "JB 200",
-    secondary_beam: "JB 150",
-    supported_material: "E 165 (Fe 290)",
-    supporting_material: "E 165 (Fe 290)",
-    // Hardcoded defaults for undefined fields:
-    bolt_hole_type: "Standard",
-    bolt_slip_factor: "0.3",
-    bolt_tension_type: "Pre-tensioned",
+    // Anchor Bolt Inside Column Flange (ICF)
+    anchor_bolt_icf_diameter: [],
+    anchor_bolt_icf_grade: [],
+    anchor_bolt_icf_type: "End Plate Type",
+    
+    // Anchor Bolt Outside Column Flange (OCF)
+    anchor_bolt_ocf_diameter: [],
+    anchor_bolt_ocf_grade: [],
+    anchor_bolt_ocf_type: "End Plate Type",
+    
+    // Base Plate
+    base_plate_material: "E 250 (Fe 410 W)A",
+    base_plate_fy: "230",
+    base_plate_fu: "410",
+    
+    // Member
+    member_designation: "Select Section",
+    member_material: "E 250 (Fe 410 W)A",
+    
+    // Connectivity
+    connectivity: "Welded Column Base",
+    end_condition: "Pinned",
+    
+    // Loads
+    load_axial_compression: "",
+    load_axial_tension: "",
+    load_moment_major: "",
+    load_moment_minor: "",
+    load_shear_major: "",
+    load_shear_minor: "",
+    
+    // Footing
+    footing_grade: "Select Grade",
+    
+    // Weld
+    weld_type: "Groove Weld",
     weld_fab: "Shop Weld",
     weld_material_grade: "410",
-    detailing_edge_type: "Rolled, machine-flame cut, sawn and planed",
-    detailing_gap: "10",
-    detailing_corr_status: "No",
+    
+    // Stiffener Key
+    stiffener_material: "E 250 (Fe 410 W)A",
+    stiffener_fy: "230",
+    stiffener_fu: "410",
+    
+    // Design Preferences (Hardcoded defaults)
     design_method: "Limit State Design",
+    design_base_plate_method: "Effective Area Method",
+    anchor_bolt_friction_coefficient: "0.3",
+    
+    // ICF Design Preferences
+    anchor_bolt_icf_bolt_hole_type: "Over-sized",
+    anchor_bolt_icf_designation: "M20X0 IS5624 GALV",
+    anchor_bolt_icf_galvanized: "Yes",
+    anchor_bolt_icf_length: "0",
+    anchor_bolt_icf_material_grade: "410",
+    
+    // OCF Design Preferences
+    anchor_bolt_ocf_bolt_hole_type: "Over-sized",
+    anchor_bolt_ocf_designation: "M20X0 IS5624 GALV",
+    anchor_bolt_ocf_galvanized: "Yes",
+    anchor_bolt_ocf_length: "0",
+    anchor_bolt_ocf_material_grade: "410",
+    
+    // Detailing
+    detailing_corr_status: "Yes",
+    detailing_edge_type: "a - Sheared or hand flame cut",
+    
+    module: MODULE_KEY_BASE_PLATE,
   },
 
   modalConfig: [
-    { key: "boltDiameter", inputKey: "bolt_diameter", dataSource: "boltDiameterList" },
-    { key: "boltGrade", inputKey: "bolt_grade", dataSource: "propertyClassList" }, // ✅ updated
-    { key: "plateThickness", inputKey: "plate_thickness", dataSource: "thicknessList" },
+    { key: "anchorBoltIcfDiameter", inputKey: "anchor_bolt_icf_diameter", dataSource: "anchorBoltIcfDiameterList" },
+    { key: "anchorBoltIcfGrade", inputKey: "anchor_bolt_icf_grade", dataSource: "anchorBoltIcfGradeList" },
+    { key: "anchorBoltOcfDiameter", inputKey: "anchor_bolt_ocf_diameter", dataSource: "anchorBoltOcfDiameterList" },
+    { key: "anchorBoltOcfGrade", inputKey: "anchor_bolt_ocf_grade", dataSource: "anchorBoltOcfGradeList" },
   ],
 
   selectionConfig: [
-    { key: "boltDiameterSelect", inputKey: "bolt_diameter", defaultValue: "All" },
-    { key: "boltGradeSelect", inputKey: "bolt_grade", defaultValue: "All" }, // ✅ updated
-    { key: "plateThicknessSelect", inputKey: "plate_thickness", defaultValue: "All" }, // ✅ updated
+    { key: "anchorBoltIcfDiameterSelect", inputKey: "anchor_bolt_icf_diameter", defaultValue: "All" },
+    { key: "anchorBoltIcfGradeSelect", inputKey: "anchor_bolt_icf_grade", defaultValue: "All" },
+    { key: "anchorBoltOcfDiameterSelect", inputKey: "anchor_bolt_ocf_diameter", defaultValue: "All" },
+    { key: "anchorBoltOcfGradeSelect", inputKey: "anchor_bolt_ocf_grade", defaultValue: "All" },
   ],
 
   validateInputs: (inputs) => {
-    const connectivity = inputs.connectivity;
+    if (!inputs.member_designation || inputs.member_designation === "Select Section") {
+      return { isValid: false, message: UI_STRINGS.PLEASE_INPUT_ALL_FIELDS };
+    }
     
-    if (connectivity === "Column Flange-Beam-Web" || connectivity === "Column Web-Beam-Web") {
-      if (!inputs.beam_section || !inputs.column_section || 
-          inputs.beam_section === "Select Section" || 
-          inputs.column_section === "Select Section") {
-        return { isValid: false, message: UI_STRINGS.PLEASE_INPUT_ALL_FIELDS };
-      }
-    } else if (connectivity === "Beam-Beam") {
-      if (!inputs.primary_beam || !inputs.secondary_beam) {
-        return { isValid: false, message: UI_STRINGS.PLEASE_INPUT_ALL_FIELDS };
-      }
+    if (!inputs.footing_grade || inputs.footing_grade === "Select Grade") {
+      return { isValid: false, message: UI_STRINGS.PLEASE_INPUT_ALL_FIELDS };
     }
     
     return { isValid: true };
   },
 
   buildSubmissionParams: (inputs, allSelected, lists, extraState) => {
-    const conn_map = {
-      "Column Flange-Beam-Web": "Column Flange-Beam Web",
-      "Column Web-Beam-Web": "Column Web-Beam Web",
-      "Beam-Beam": "Beam-Beam",
+    return {
+      // Anchor Bolt Inside Column Flange
+      "Anchor Bolt.ICF.Diameter": allSelected.anchor_bolt_icf_diameter 
+        ? lists.anchorBoltIcfDiameterList 
+        : inputs.anchor_bolt_icf_diameter,
+      "Anchor Bolt.ICF.Grade": allSelected.anchor_bolt_icf_grade 
+        ? lists.anchorBoltIcfGradeList 
+        : inputs.anchor_bolt_icf_grade,
+      "Anchor Bolt.Type": inputs.anchor_bolt_icf_type,
       
+      // Anchor Bolt Outside Column Flange
+      "Anchor Bolt.OCF.Diameter": allSelected.anchor_bolt_ocf_diameter 
+        ? lists.anchorBoltOcfDiameterList 
+        : inputs.anchor_bolt_ocf_diameter,
+      "Anchor Bolt.OCF.Grade": allSelected.anchor_bolt_ocf_grade 
+        ? lists.anchorBoltOcfGradeList 
+        : inputs.anchor_bolt_ocf_grade,
+      
+      // Base Plate
+      "Base_Plate.Material": inputs.base_plate_material,
+      "Base_Plate.Fy": inputs.base_plate_fy,
+      "Base_Plate.Fu": inputs.base_plate_fu,
+      
+      // Member
+      "Member.Designation": inputs.member_designation,
+      "Member.Material": inputs.member_material,
+      
+      // Connectivity
+      "Connectivity *": inputs.connectivity,
+      "End Condition": inputs.end_condition,
+      
+      // Loads
+      "Load.Axial_Compression": inputs.load_axial_compression || "",
+      "Load.Axial_Tension": inputs.load_axial_tension || "",
+      "Load.Moment.Major": inputs.load_moment_major || "",
+      "Load.Moment.Minor": inputs.load_moment_minor || "",
+      "Load.Shear.Major": inputs.load_shear_major || "",
+      "Load.Shear.Minor": inputs.load_shear_minor || "",
+      
+      // Footing
+      "Footing.Grade": inputs.footing_grade,
+      
+      // Weld
+      "Weld.Type": inputs.weld_type,
+      "Weld.Fab": inputs.weld_fab,
+      "Weld.Material_Grade_OverWrite": inputs.weld_material_grade,
+      
+      // Stiffener Key
+      "Stiffener_Key.Material": inputs.stiffener_material,
+      "Stiffener_Key.Fy": inputs.stiffener_fy,
+      "Stiffener_Key.Fu": inputs.stiffener_fu,
+      
+      // Design Method
+      "Design.Design_Method": inputs.design_method,
+      "DesignPreferences.Design.Base_Plate": inputs.design_base_plate_method,
+      
+      // Design Preferences - Anchor Bolt
+      "DesignPreferences.Anchor_Bolt.Friction_coefficient": inputs.anchor_bolt_friction_coefficient,
+      
+      // ICF Design Preferences
+      "DesignPreferences.Anchor_Bolt.ICF.Bolt_Hole_Type": inputs.anchor_bolt_icf_bolt_hole_type,
+      "DesignPreferences.Anchor_Bolt.ICF.Designation": inputs.anchor_bolt_icf_designation,
+      "DesignPreferences.Anchor_Bolt.ICF.Galvanized": inputs.anchor_bolt_icf_galvanized,
+      "DesignPreferences.Anchor_Bolt.ICF.Length": inputs.anchor_bolt_icf_length,
+      "DesignPreferences.Anchor_Bolt.ICF.Material_Grade_OverWrite": inputs.anchor_bolt_icf_material_grade,
+      "DesignPreferences.Anchor_Bolt.ICF.Type": inputs.anchor_bolt_icf_type,
+      
+      // OCF Design Preferences
+      "DesignPreferences.Anchor_Bolt.OCF.Bolt_Hole_Type": inputs.anchor_bolt_ocf_bolt_hole_type,
+      "DesignPreferences.Anchor_Bolt.OCF.Designation": inputs.anchor_bolt_ocf_designation,
+      "DesignPreferences.Anchor_Bolt.OCF.Galvanized": inputs.anchor_bolt_ocf_galvanized,
+      "DesignPreferences.Anchor_Bolt.OCF.Length": inputs.anchor_bolt_ocf_length,
+      "DesignPreferences.Anchor_Bolt.OCF.Material_Grade_OverWrite": inputs.anchor_bolt_ocf_material_grade,
+      "DesignPreferences.Anchor_Bolt.OCF.Type": inputs.anchor_bolt_ocf_type,
+      
+      // Detailing
+      "Detailing.Corrosive_Influences": inputs.detailing_corr_status,
+      "Detailing.Edge_type": inputs.detailing_edge_type,
+      
+      // Material (top-level)
+      "Material": inputs.base_plate_material,
+      
+      // Module
+      "Module": MODULE_KEY_BASE_PLATE,
     };
-
-    const connectivity = extraState?.selectedOption || inputs.connectivity;
-    
-    if (connectivity === "Column Flange-Beam-Web" || connectivity === "Column Web-Beam-Web") {
-      return {
-        "Bolt.Bolt_Hole_Type": inputs.bolt_hole_type,
-        "Bolt.Diameter": allSelected.bolt_diameter ? lists.boltDiameterList : inputs.bolt_diameter,
-        "Bolt.Grade": allSelected.bolt_grade ? lists.propertyClassList : inputs.bolt_grade,
-        "Bolt.Slip_Factor": inputs.bolt_slip_factor,
-        "Bolt.TensionType": inputs.bolt_tension_type,
-        "Bolt.Type": inputs.bolt_type.replaceAll("_", " "),
-        "Connectivity": conn_map[connectivity],
-        "Connector.Material": inputs.connector_material,
-        "Design.Design_Method": inputs.design_method,
-        "Detailing.Corrosive_Influences": inputs.detailing_corr_status,
-        "Detailing.Edge_type": inputs.detailing_edge_type,
-        "Detailing.Gap": inputs.detailing_gap,
-        "Load.Axial": inputs.load_axial || "",
-        "Load.Shear": inputs.load_shear || "",
-        "Material": inputs.connector_material,
-        "Member.Supported_Section.Designation": inputs.beam_section,
-        "Member.Supported_Section.Material": inputs.supported_material,
-        "Member.Supporting_Section.Designation": inputs.column_section,
-        "Member.Supporting_Section.Material": inputs.supporting_material,
-        "Module": MODULE_KEY_FIN_PLATE,
-        "Weld.Fab": inputs.weld_fab,
-        "Weld.Material_Grade_OverWrite": inputs.weld_material_grade,
-        "Connector.Plate.Thickness_List": allSelected.plate_thickness ? lists.thicknessList : inputs.plate_thickness,
-      };
-    } else {
-      return {
-        "Bolt.Bolt_Hole_Type": inputs.bolt_hole_type,
-        "Bolt.Diameter": allSelected.bolt_diameter ? lists.boltDiameterList : inputs.bolt_diameter,
-        "Bolt.Grade": allSelected.bolt_grade ? lists.propertyClassList : inputs.bolt_grade,
-        "Bolt.Slip_Factor": inputs.bolt_slip_factor,
-        "Bolt.TensionType": inputs.bolt_tension_type,
-        "Bolt.Type": inputs.bolt_type.replaceAll("_", " "),
-        "Connectivity": conn_map[connectivity],
-        "Connector.Material": inputs.connector_material,
-        "Design.Design_Method": inputs.design_method,
-        "Detailing.Corrosive_Influences": inputs.detailing_corr_status,
-        "Detailing.Edge_type": inputs.detailing_edge_type,
-        "Detailing.Gap": inputs.detailing_gap,
-        "Load.Axial": inputs.load_axial || "",
-        "Load.Shear": inputs.load_shear || "",
-        "Material": "E 300 (Fe 440)",
-        "Member.Supported_Section.Designation": inputs.secondary_beam,
-        "Member.Supported_Section.Material": inputs.supported_material,
-        "Member.Supporting_Section.Designation": inputs.primary_beam,
-        "Member.Supporting_Section.Material": inputs.supporting_material,
-        "Module": MODULE_KEY_FIN_PLATE,
-        "Weld.Fab": inputs.weld_fab,
-        "Weld.Material_Grade_OverWrite": inputs.weld_material_grade,
-        "Connector.Plate.Thickness_List": allSelected.plate_thickness ? lists.thicknessList : inputs.plate_thickness,
-      };
-    }
   },
 
   inputSections: [
@@ -137,45 +200,27 @@ export const finPlateConfig = {
         {
           key: "connectivity",
           label: UI_STRINGS.CONNECTIVITY,
-          type: "connectivitySelect"
+          type: "select",
+          options: [{ id: "Welded Column Base", Grade: "Welded Column Base" }],
+          disabled: true // Since there's only one option
         },
         {
-          key: "EndCondition",
+          key: "end_condition",
           label: UI_STRINGS.ENDCONDITION,
-          
+          type: "select",
+          options: [
+            { id: "Pinned", Grade: "Pinned" },
+            { id: "Fixed", Grade: "Fixed" }
+          ]
         },
         {
-          key: "column_section", 
+          key: "member_designation", 
           label: UI_STRINGS.COLUMN_SECTION,
           type: "select",
-          options: "columnList",
-          conditionalDisplay: (extraState) => {
-            const connectivity = extraState?.selectedOption;
-            return connectivity === "Column Flange-Beam-Web" || connectivity === "Column Web-Beam-Web";
-          }
+          options: "columnList"
         },
         {
-          key: "primary_beam",
-          label: UI_STRINGS.PRIMARY_BEAM,
-          type: "select", 
-          options: "beamList",
-          conditionalDisplay: (extraState) => {
-            const connectivity = extraState?.selectedOption;
-            return connectivity === "Beam-Beam";
-          }
-        },
-        {
-          key: "secondary_beam",
-          label: UI_STRINGS.SECONDARY_BEAM,
-          type: "select",
-          options: "beamList", 
-          conditionalDisplay: (extraState) => {
-            const connectivity = extraState?.selectedOption;
-            return connectivity === "Beam-Beam";
-          }
-        },
-        {
-          key: "connector_material",
+          key: "member_material",
           label: UI_STRINGS.MATERIAL,
           type: "select",
           options: "materialList",
@@ -183,7 +228,7 @@ export const finPlateConfig = {
             const material = materialList.find(item => item.id === value);
             setInputs({
               ...inputs,
-              connector_material: material.Grade,
+              member_material: material.Grade,
             });
           }
         }
@@ -192,32 +237,41 @@ export const finPlateConfig = {
     {
       title: UI_STRINGS.FACTORED_LOADS,
       fields: [
-        { key: "AXIAL_COMPRESSION", label: UI_STRINGS.AXIAL_COMPRESSION, type: "number" },
-        { key: "AXIAL TENSION", label: UI_STRINGS.AXIAL_LIFT_UPLIFT, type: "number" },
-        { key: "Z VALUE", label: UI_STRINGS.ALONG_MAJOR_AXISZ, type: "number" },
-        { key: "y VALUE", label: UI_STRINGS.ALONG_MAJOR_AXISY, type: "number" },
-        { key: "load_shear", label: UI_STRINGS.SHEAR_FORCE, type: "number" },
-        { key: "load_axial", label: UI_STRINGS.AXIAL_FORCE, type: "number" }
-      ]
-    },
-    {
-      title: UI_STRINGS.ANCHOR_BOLT_OUTSIDE_COLUMN_FLANGE,
-      fields: [
-        {
-          key: "bolt_diameter",
-          label: UI_STRINGS.DIAMETER,
-          type: "customizable",
-          selectionKey: "boltDiameterSelect",
-          modalKey: "boltDiameter",
-          dataSource: "boltDiameterList"
+        { 
+          key: "load_axial_compression", 
+          label: UI_STRINGS.AXIAL_COMPRESSION, 
+          type: "number",
+          placeholder: "kN"
         },
-        {
-          key: "bolt_grade",
-          label: UI_STRINGS.PROPERTY_CLASS,
-          type: "customizable",
-          selectionKey: "boltGradeSelect", // ✅ updated
-          modalKey: "boltGrade", // ✅ updated
-          dataSource: "propertyClassList"
+        { 
+          key: "load_axial_tension", 
+          label: UI_STRINGS.AXIAL_LIFT_UPLIFT, 
+          type: "number",
+          placeholder: "kN"
+        },
+        { 
+          key: "load_moment_major", 
+          label: UI_STRINGS.ALONG_MAJOR_AXISZ, 
+          type: "number",
+          placeholder: "kNm"
+        },
+        { 
+          key: "load_moment_minor", 
+          label: UI_STRINGS.ALONG_MAJOR_AXISY, 
+          type: "number",
+          placeholder: "kNm"
+        },
+        { 
+          key: "load_shear_major", 
+          label: UI_STRINGS.SHEAR_FORCE + " (Major)", 
+          type: "number",
+          placeholder: "kN"
+        },
+        { 
+          key: "load_shear_minor", 
+          label: UI_STRINGS.SHEAR_FORCE + " (Minor)", 
+          type: "number",
+          placeholder: "kN"
         }
       ]
     },
@@ -225,47 +279,82 @@ export const finPlateConfig = {
       title: UI_STRINGS.ANCHOR_BOLT_INSIDE_COLUMN_FLANGE,
       fields: [
         {
-          key: "plate_thickness",
+          key: "anchor_bolt_icf_diameter",
           label: UI_STRINGS.DIAMETER,
           type: "customizable",
-          selectionKey: "plateThicknessSelect", // ✅ updated
-          modalKey: "plateThickness",
-          dataSource: "thicknessList"
+          selectionKey: "anchorBoltIcfDiameterSelect",
+          modalKey: "anchorBoltIcfDiameter",
+          dataSource: "anchorBoltIcfDiameterList"
         },
         {
-          key: "plate_thickness",
+          key: "anchor_bolt_icf_grade",
           label: UI_STRINGS.PROPERTY_CLASS,
           type: "customizable",
-          selectionKey: "plateThicknessSelect", // ✅ updated
-          modalKey: "plateThickness",
-          dataSource: "thicknessList"
+          selectionKey: "anchorBoltIcfGradeSelect",
+          modalKey: "anchorBoltIcfGrade",
+          dataSource: "anchorBoltIcfGradeList"
         },
         {
-          key: "plate_thickness",
+          key: "anchor_bolt_icf_type",
           label: UI_STRINGS.ANCHOR_TYPE,
+          type: "select",
+          options: [{ id: "End Plate Type", Grade: "End Plate Type" }],
+          disabled: true
+        }
+      ]
+    },
+    {
+      title: UI_STRINGS.ANCHOR_BOLT_OUTSIDE_COLUMN_FLANGE,
+      fields: [
+        {
+          key: "anchor_bolt_ocf_diameter",
+          label: UI_STRINGS.DIAMETER,
           type: "customizable",
-          selectionKey: "plateThicknessSelect", // ✅ updated
-          modalKey: "plateThickness",
-          dataSource: "thicknessList"
+          selectionKey: "anchorBoltOcfDiameterSelect",
+          modalKey: "anchorBoltOcfDiameter",
+          dataSource: "anchorBoltOcfDiameterList"
         },
+        {
+          key: "anchor_bolt_ocf_grade",
+          label: UI_STRINGS.PROPERTY_CLASS,
+          type: "customizable",
+          selectionKey: "anchorBoltOcfGradeSelect",
+          modalKey: "anchorBoltOcfGrade",
+          dataSource: "anchorBoltOcfGradeList"
+        },
+        {
+          key: "anchor_bolt_ocf_type",
+          label: UI_STRINGS.ANCHOR_TYPE,
+          type: "select",
+          options: [{ id: "End Plate Type", Grade: "End Plate Type" }],
+          disabled: true
+        }
       ]
     },
     {
       title: UI_STRINGS.PEDESTAL_FOOTING,
       fields: [
-        { key: "GRADE", label: UI_STRINGS.GRADE, type: "number" },
-        
+        { 
+          key: "footing_grade", 
+          label: UI_STRINGS.GRADE, 
+          type: "select",
+          options: "footingGradeList" // need to provide this in the backend
+        }
       ]
     },
     {
       title: UI_STRINGS.WELD,
       fields: [
-        { key: "GRADE", label: UI_STRINGS.TYPE, type: "number" },
-        
+        { 
+          key: "weld_type", 
+          label: UI_STRINGS.TYPE, 
+          type: "select",
+          options: [
+            { id: "Groove Weld", Grade: "Groove Weld" },
+            { id: "Fillet Weld", Grade: "Fillet Weld" }
+          ]
+        }
       ]
     }
-    
-    
-    
   ]
 };
