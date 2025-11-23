@@ -441,11 +441,12 @@ class FinPlateConnection(ShearConnection):
 
         # Populate hover dict
         self.hover_dict["Bolt"] = f"Grade: {self.bolt.bolt_grade_provided if flag else ''}<br>Diameter: {int(self.bolt.bolt_diameter_provided) if flag else ''} mm<br>No. of Bolts: {int(self.plate.bolts_one_line)*int(self.plate.bolt_line) if flag else ''}"
+        self.hover_dict["Bolt"] = f"Grade: {self.bolt.bolt_grade_provided if flag else ''}<br>Diameter: {int(self.bolt.bolt_diameter_provided) if flag else ''} mm<br>No. of Bolts: {int(self.plate.bolts_one_line)*int(self.plate.bolt_line) if flag else ''}"
         
         self.hover_dict["Plate"]= f"Plate: {float(self.plate.length) if flag else ''} x {float(self.plate.height) if flag else ''} x {self.plate.thickness_provided if flag else ''}"
             
         self.hover_dict["Weld"]= f"Weld: {self.weld.size if flag else ''} mm"
-
+        print("hover_dict:", self.hover_dict)
         return out_list
 
     ####################################

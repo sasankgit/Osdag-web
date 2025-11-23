@@ -33,79 +33,9 @@ export const createDesign = async (param, module_id, onCADSuccess = null, dispat
   }
 };
 
-export const createDesignReport = async (params, moduleId = null, inputValues = null, designStatus = true, logs = [], fetchCompanyLogo) => {
-  const logoFullPath = params.companyLogo
-    ? await fetchCompanyLogo(params.companyLogo, params.companyLogoName)
-    : "";
-  try {
-    const sanitizedInputs = inputValues ? JSON.parse(JSON.stringify(inputValues)) : null;
-    const sanitizedLogs = Array.isArray(logs) ? JSON.parse(JSON.stringify(logs)) : [];
-    const normalizedModuleId = moduleId || null;
-
-    const requestBody = {
-      metadata: {
-        ProfileSummary: {
-          CompanyName: params.companyName,
-          CompanyLogo: logoFullPath ? logoFullPath : "",
-          "Group/TeamName": params.groupTeamName,
-          Designer: params.designer,
-        },
-        ProjectTitle: params.projectTitle,
-        Subtitle: params.subtitle,
-        JobNumber: params.jobNumber,
-        AdditionalComments: params.additionalComments,
-        Client: params.client,
-      },
-      module_id: normalizedModuleId,
-      input_values: sanitizedInputs,
-      design_status: designStatus,
-      logs: sanitizedLogs,
-    };
-
-    // Then stringify for sending
-    const body = JSON.stringify(requestBody);
-
-    const response = await fetch(`${BASE_URL}generate-report`, {
-      method: "POST",
-      mode: "cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-      body: body,
-    });
-    const jsonResponse = await response?.json();
-    if (response.status == 201 && jsonResponse?.report_id) {
-      // Download the PDF directly from backend without opening a new tab
-      try {
-        const pdfUrl = `${BASE_URL}getPDF?report_id=${jsonResponse.report_id}`;
-        const pdfRes = await fetch(pdfUrl, {
-          method: 'GET',
-          mode: 'cors',
-          credentials: 'include'
-        });
-        if (!pdfRes.ok) {
-          throw new Error(`PDF fetch failed: ${pdfRes.status} ${pdfRes.statusText}`);
-        }
-        const blob = await pdfRes.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `osdag_report_${jsonResponse.report_id}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } catch (e) {
-        console.warn('PDF direct download failed, exposing report_id to caller.', e);
-      }
-      return { success: true, report_id: jsonResponse.report_id };
-    }
-    const errorMsg = jsonResponse?.message || 'Report generation failed';
-    return { success: false, error: errorMsg };
-  } catch (error) {
-    return { success: false, error: error?.message || 'Network error' };
-  }
+// Deprecated: legacy design-report flow removed. Use the 3-step flow in DesignReportModal instead.
+export const createDesignReport = async () => {
+  return { success: false, error: 'Legacy design-report flow removed. Use generate-initial/parse-sections/customize.' };
 };
 
 export const getModuleData = async (moduleName) => {
@@ -167,8 +97,31 @@ export const designAndGenerateCad = async (moduleKey, inputParams, dispatch) => 
       return { design: designData, cad: null, error: message };
     }
     const cadData = await cadRes.json();
+    
+    // Log the API response to debug hover_dict
+    console.log('=== [moduleApi] CAD API Response ===');
+    console.log('[moduleApi] Response status:', cadRes.status);
+    console.log('[moduleApi] Response data keys:', Object.keys(cadData));
+    console.log('[moduleApi] cadData.hover_dict:', cadData.hover_dict);
+    console.log('[moduleApi] cadData.hover_dict type:', typeof cadData.hover_dict);
+    if (cadData.hover_dict && typeof cadData.hover_dict === 'object') {
+      console.log('[moduleApi] hover_dict keys:', Object.keys(cadData.hover_dict));
+      console.log('[moduleApi] hover_dict entries:', Object.entries(cadData.hover_dict));
+      console.log('[moduleApi] hover_dict JSON:', JSON.stringify(cadData.hover_dict, null, 2));
+    }
+    
     if (cadRes.status === 201 && cadData.status === "success") {
       dispatch({ type: "SET_CAD_MODEL_PATHS", payload: cadData.files });
+      
+      // Log before dispatching hover_dict
+      console.log('[moduleApi] Before dispatch - cadData.hover_dict:', cadData.hover_dict);
+      if (cadData.hover_dict) {
+        console.log('[moduleApi] Dispatching SET_HOVER_DICT with:', cadData.hover_dict);
+        dispatch({ type: "SET_HOVER_DICT", payload: cadData.hover_dict });
+      } else {
+        console.warn('[moduleApi] cadData.hover_dict is missing or empty!');
+      }
+      
       dispatch({ type: "SET_RENDER_CAD_MODEL_BOOLEAN", payload: true });
       return { design: designData, cad: cadData, error: null };
     } else {

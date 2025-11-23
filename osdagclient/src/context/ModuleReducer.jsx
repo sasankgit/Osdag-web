@@ -154,6 +154,18 @@ export default (state, action) => {
         cadModelPaths: action.payload || {},
       };
 
+    case "SET_HOVER_DICT":
+      console.log('[ModuleReducer] SET_HOVER_DICT action received');
+      console.log('[ModuleReducer] action.payload:', action.payload);
+      console.log('[ModuleReducer] action.payload type:', typeof action.payload);
+      console.log('[ModuleReducer] action.payload keys:', action.payload ? Object.keys(action.payload) : 'N/A');
+      const newHoverDict = action.payload || {};
+      console.log('[ModuleReducer] Setting hoverDict to:', newHoverDict);
+      return {
+        ...state,
+        hoverDict: newHoverDict,
+      };
+
     // ===================================================================
     // REPORT ACTIONS - Consolidated
     // ===================================================================

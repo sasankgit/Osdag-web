@@ -50,6 +50,7 @@ let initialValue = {
   designData: {},
   renderCadModel: false,
   cadModelPaths: {}, //stores cad files path
+  hoverDict: {},
   displayPDF: false,
   report_id: "",
   blobUrl: "",
@@ -243,8 +244,12 @@ export const ModuleProvider = ({ children }) => {
    * @param {Function} onCADSuccess - Success callback function
    */
   const createCADModel = useCallback(async (inputData, moduleId, onCADSuccess = null) => {
+    console.log('🚀 [ModuleState] createCADModel CALLED');
+    console.log('[ModuleState] moduleId:', moduleId);
+    console.log('[ModuleState] inputData keys:', inputData ? Object.keys(inputData) : 'N/A');
     try {
 
+      console.log('[ModuleState] Making fetch request to:', `${BASE_URL}design/cad`);
       const response = await fetch(`${BASE_URL}design/cad`, {
         method: "POST",
         mode: "cors",
@@ -260,6 +265,20 @@ export const ModuleProvider = ({ children }) => {
 
 
       const data = await response.json();
+      
+      // Log the API response to debug hover_dict
+      console.log('=== [ModuleState] CAD API Response ===');
+      console.log('[ModuleState] Response status:', response.status);
+      console.log('[ModuleState] Response data keys:', Object.keys(data));
+      console.log('[ModuleState] data.hover_dict:', data.hover_dict);
+      console.log('[ModuleState] data.hover_dict type:', typeof data.hover_dict);
+      console.log('[ModuleState] data.hover_dict is object:', data.hover_dict && typeof data.hover_dict === 'object');
+      if (data.hover_dict && typeof data.hover_dict === 'object') {
+        console.log('[ModuleState] hover_dict keys:', Object.keys(data.hover_dict));
+        console.log('[ModuleState] hover_dict entries:', Object.entries(data.hover_dict));
+        console.log('[ModuleState] hover_dict JSON:', JSON.stringify(data.hover_dict, null, 2));
+      }
+      
       if (!response.ok) {
         let message = data.message || "CAD generation failed";
 
@@ -272,6 +291,15 @@ export const ModuleProvider = ({ children }) => {
 
         // Store CAD data and trigger rendering
         dispatch({ type: "SET_CAD_MODEL_PATHS", payload: data.files });
+        
+        // Log before dispatching hover_dict
+        console.log('[ModuleState] Before dispatch - data.hover_dict:', data.hover_dict);
+        if (data.hover_dict) {
+          console.log('[ModuleState] Dispatching SET_HOVER_DICT with:', data.hover_dict);
+          dispatch({ type: "SET_HOVER_DICT", payload: data.hover_dict });
+        } else {
+          console.warn('[ModuleState] data.hover_dict is missing or empty!');
+        }
         dispatch({ type: "SET_RENDER_CAD_MODEL_BOOLEAN", payload: true });
 
         // Execute success callback if provided
@@ -287,6 +315,9 @@ export const ModuleProvider = ({ children }) => {
         throw new Error(`CAD generation failed: ${data.message || 'Unknown error'}`);
       }
     } catch (error) {
+      console.error('❌ [ModuleState] createCADModel ERROR:', error);
+      console.error('[ModuleState] Error message:', error.message);
+      console.error('[ModuleState] Error stack:', error.stack);
       dispatch({ type: "SET_RENDER_CAD_MODEL_BOOLEAN", payload: false });
       return { success: false, error: error.message };
     }
@@ -337,34 +368,7 @@ export const ModuleProvider = ({ children }) => {
 
       switch (type.toLowerCase()) {
         case 'pdf': {
-          const { report_id } = params;
-          if (!report_id) {
-            throw new Error("Report ID is required for PDF generation");
-          }
-
-          const response = await fetch(`${BASE_URL}getPDF?report_id=${report_id}`, {
-            method: "GET",
-            mode: "cors",
-            credentials: "include",
-            headers: {
-              Accept: "application/json",
-              "Cache-Control": "no-cache",
-              Pragma: "no-cache",
-            },
-          });
-
-          if (response.ok) {
-            // Auto-download the PDF
-            const link = document.createElement("a");
-            link.href = response.url;
-            link.setAttribute("download", `osdag_report_${report_id}.pdf`);
-            link.click();
-            link.remove();
-
-            return { success: true, message: "PDF downloaded successfully" };
-          } else {
-            throw new Error(`PDF generation failed: ${response.status} ${response.statusText}`);
-          }
+          return { success: false, error: 'Legacy PDF endpoint removed. Use the in-app report modal (generate-initial → parse-sections → customize).' };
         }
 
         case 'csv': {
@@ -379,9 +383,7 @@ export const ModuleProvider = ({ children }) => {
         }
 
         case 'design_report': {
-          // Use external API for design report generation
-          const { moduleId, inputValues, designStatus = true, logs = [] } = params;
-          return apiCreateDesignReport(params, moduleId, inputValues, designStatus, logs, uploadCompanyLogo, generateReport);
+          return { success: false, error: 'Legacy design-report flow removed. Use the in-app report modal.' };
         }
 
         default:
@@ -512,10 +514,10 @@ export const ModuleProvider = ({ children }) => {
     dispatch({ type: "RESET_MODULE_STATE" });
   }, [dispatch]);
 
-  useEffect(() => {
-    // Initialize with FinPlate module for backward compatibility
-    populateModule(MODULE_KEY_FIN_PLATE, dispatch);
-  }, []);
+  // useEffect(() => {
+  //   // Initialize with FinPlate module for backward compatibility
+  //   populateModule(MODULE_KEY_FIN_PLATE, dispatch);
+  // }, []);
 
   return (
     <ModuleContext.Provider
@@ -543,6 +545,7 @@ export const ModuleProvider = ({ children }) => {
         // Tension member specific
         sectionProfileList: state.sectionProfileList,
         channelList: state.channelList,
+        sectionDesignation: state.sectionDesignation,
 
         // Welded connection specific
         weldTypes: state.weldTypes,
@@ -557,6 +560,7 @@ export const ModuleProvider = ({ children }) => {
         designLogs: state.designLogs,
         renderCadModel: state.renderCadModel,
         cadModelPaths: state.cadModelPaths,
+        hoverDict: state.hoverDict,  // CAD model hover tooltip data
         displayPDF: state.displayPDF,
         blobUrl: state.blobUrl,
         designPrefData: state.designPrefData,

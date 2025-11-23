@@ -32,6 +32,7 @@ import SeatedAngle from "./modules/shearConnection/seatAngle/SeatedAngle";
 
 // Tension members modules
 import BoltedToEnd from "./modules/TensionMembers/BoltedToEnd/BoltedToEnd";
+import WeldedToEnd from "./modules/TensionMembers/WeldedToEnd/WeldedToEnd";
 
 // Beam modules
 import SimplySupportedBeam from "./modules/flexuralMember/simplySupportedBeam";
@@ -42,6 +43,7 @@ import CoverPlateBolted from "./modules/coverPlateBolted/CoverPlateBolted";
 import CoverPlateWelded from "./modules/coverPlateWelded/CoverPlateWelded";
 
 import "./App.css";
+import BeamToColumnEndPlate from "./modules/beamToColumnEndPlate/BeamToColumnEndPlate";
 
 let renderedOnce = false;
 
@@ -68,6 +70,8 @@ function App() {
         <Route path="/design/:designType/simply_supported_beam/:projectId?" element={<SimplySupportedBeam />} />
         <Route path="/design/:designType/bolted_to_end_gusset/:projectId?" element={<BoltedToEnd />} />
         <Route path="/design/connections/base_plate/:projectId?" element={<BasePlateConnection />} />
+        <Route path="/design/:designType/welded_to_end_gusset/:projectId?" element={<WeldedToEnd />} />
+        <Route path="/design/:designType/column-beam/:projectId?" element={<BeamToColumnEndPlate />} />
       </Route>
     )
   );

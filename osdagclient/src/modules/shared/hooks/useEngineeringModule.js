@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { ModuleContext } from "../../../context/ModuleState";
-import { MODULE_KEY_FIN_PLATE } from "../../../constants/DesignKeys";
+import { MODULE_KEY_FIN_PLATE, MODULE_KEY_CLEAT_ANGLE } from "../../../constants/DesignKeys";
 
 export const useEngineeringModule = (moduleConfig) => {
   const navigate = useNavigate();
@@ -20,11 +20,15 @@ export const useEngineeringModule = (moduleConfig) => {
     propertyClassList,
     angleList, // FIXED: Added angleList from context
     boltTypeList,
+    sectionProfileList,
+    channelList,
+    sectionDesignation,
     designLogs,
     designData,
     displayPDF,
     renderCadModel,
     cadModelPaths,
+    hoverDict,
 
     // NEW SIMPLIFIED API - 8 Core Functions Only
     getModuleData,              // Universal data fetcher
@@ -140,6 +144,14 @@ export const useEngineeringModule = (moduleConfig) => {
     }, {})
   );
 
+  const [modalDynamicSrc, setModalDynamicSrc] = useState(
+    moduleConfig.modalConfig.reduce((acc, modal) => {
+      if(!modal?.dataSource)
+        acc[modal.key] = [];
+      return acc;
+    }, {})
+  );
+
   // Selection states
   const [selectionStates, setSelectionStates] = useState(
     moduleConfig.selectionConfig.reduce((acc, selection) => {
@@ -164,6 +176,45 @@ export const useEngineeringModule = (moduleConfig) => {
     }, {})
   );
 
+  // Initialize inputs arrays when default is "All" and arrays are empty
+  useEffect(() => {
+    const keyToFullListMap = {
+      bolt_diameter: boltDiameterList,
+      bolt_grade: propertyClassList,
+      plate_thickness: thicknessList,
+      flange_plate_thickness: thicknessList,
+      web_plate_thickness: thicknessList,
+      angle_list: angleList,
+      topangle_list: angleList,
+      cleat_section: angleList,
+    };
+
+    const nextInputs = { ...inputs };
+    let changed = false;
+
+    Object.entries(keyToFullListMap).forEach(([inputKey, fullList]) => {
+      if (!allSelected?.[inputKey]) return;
+      const current = inputs?.[inputKey];
+      const isEmptyArray = Array.isArray(current) ? current.length === 0 : !current;
+      if (!isEmptyArray) return;
+
+      const normalized = Array.isArray(fullList)
+        ? fullList.map((val) => {
+            if (typeof val === 'object' && val !== null) {
+              return val.value || val.Grade || String(val);
+            }
+            return String(val);
+          })
+        : [];
+      nextInputs[inputKey] = normalized;
+      changed = true;
+    });
+
+    if (changed) {
+      setInputs(nextInputs);
+    }
+  }, [boltDiameterList, propertyClassList, thicknessList, angleList, allSelected]);
+
   // Initialize extraState based on module type
   const getInitialExtraState = () => {
     if (moduleConfig.cameraKey === MODULE_KEY_FIN_PLATE) {
@@ -173,6 +224,10 @@ export const useEngineeringModule = (moduleConfig) => {
     } else if (moduleConfig.cameraKey === "EndPlate") {
       return {
         selectedOption: "Column Flange-Beam-Web", // Default for EndPlate
+      };
+    } else if (moduleConfig.cameraKey === "BeamToColumnEndPlate") {
+      return {
+        selectedOption: "Flushed - Reversible Moment", // Default for BeamColumnEndPlate
       };
     }
     return {
@@ -525,6 +580,7 @@ export const useEngineeringModule = (moduleConfig) => {
       propertyClassList,
       thicknessList,
       angleList, // FIXED: Added angleList to submission params
+      channelList
     }, extraState);
 
     // Show loading modal
@@ -532,10 +588,13 @@ export const useEngineeringModule = (moduleConfig) => {
     setLoadingStage("Generating design calculations...");
 
     try {
+      console.log('🔵 [useEngineeringModule] handleSubmit - calling createDesign');
       await createDesign(param, moduleConfig.designType, null);
       // Auto-trigger CAD after successful design
+      console.log('🔵 [useEngineeringModule] Design complete, calling createCADModel');
       setLoadingStage("Generating 3D model...");
       const cadResult = await createCADModel(param, moduleConfig.designType, null);
+      console.log('🔵 [useEngineeringModule] createCADModel result:', cadResult);
       if (cadResult?.success) {
         setDisplayOutput(true);
         setLoading(false);
@@ -712,6 +771,17 @@ export const useEngineeringModule = (moduleConfig) => {
     setCreateDesignReportBool(false);
   };
 
+  const clearDesignResults = () => {
+    setDisplayOutput(false);
+    setOutput(null);
+    setLogs(null);
+    setRenderBoolean(false);
+    setModelKey((prev) => prev + 1);
+    setLoading(false);
+    setIsLoadingModalVisible(false);
+    setLoadingStage("");
+  };
+
   return {
     // ===================================================================
     // CONTEXT DATA - Module state variables
@@ -725,11 +795,17 @@ export const useEngineeringModule = (moduleConfig) => {
     propertyClassList,
     angleList, // FIXED: Added angleList to return object
     boltTypeList,
+    sectionProfileList,
+    sectionDesignation,
+    channelList,
     displayPDF,
+    designLogs,
+    designData,
     renderCadModel,
     cadModelPaths,
+    hoverDict,
 
-    // ===================================================================
+    // NEW SIMPLIFIED API - 8 Core Functions Only
     // SIMPLIFIED API ACCESS - Expose core functions for advanced usage
     // ===================================================================
     getModuleData,              // Universal data fetcher
@@ -755,6 +831,8 @@ export const useEngineeringModule = (moduleConfig) => {
     selectedItems,
     extraState,
     setExtraState,
+    modalDynamicSrc,
+    setModalDynamicSrc,
 
     // Report states
     createDesignReportBool,
@@ -801,5 +879,6 @@ export const useEngineeringModule = (moduleConfig) => {
     handleCreateDesignReport,
     handleOkDesignReport,
     handleCancelDesignReport,
+    clearDesignResults,
   };
 };

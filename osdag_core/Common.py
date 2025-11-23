@@ -7,7 +7,7 @@ import os
 import operator
 import math
 import logging
-from importlib_resources import files
+from importlib.resources import files
 
 PATH_TO_DATABASE = files("osdag_core.data.ResourceFiles.Database").joinpath("Intg_osdag.sqlite")
 PDFLATEX = files("osdag_core.data.ResourceFiles.osdag-latex-env.bin.windows").joinpath("pdflatex.exe")
@@ -16,8 +16,8 @@ import sqlite3
 
 from .utils.common.other_standards import *
 # from .utils.common.component import *
-# from design_type.connection.fin_plate_connection import FinPlateConnection
-# from design_type.connection.column_cover_plate import ColumnCoverPlate
+# from osdag_core.design_type.connection.fin_plate_connection import FinPlateConnection
+# from osdag_core.design_type.connection.column_cover_plate import ColumnCoverPlate
 
 class OurLog(logging.Handler):
 
@@ -337,7 +337,7 @@ KEY_MODULE_STATUS = 'Module.Status'
 
 TYPE_MODULE = 'Window Title'
 
-KEY_DISP_FINPLATE = 'Fin Plate Connection'
+KEY_DISP_FINPLATE = 'FinPlateConnection'
 KEY_DISP_ENDPLATE = 'End Plate Connection'
 KEY_DISP_CLEATANGLE = 'Cleat Angle Connection'
 KEY_DISP_SEATED_ANGLE = 'SeatedAngleConnection'
@@ -2572,9 +2572,6 @@ except Exception as e:
     all_angles = []
 
 VALUES_CLEAT_CUSTOMIZED = get_available_cleat_list(all_angles, 200.0, 50.0)
-print(all_angles)
-print("customised")
-print(VALUES_CLEAT_CUSTOMIZED)
 
 BOLT_DESCRIPTION = str("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
                 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"

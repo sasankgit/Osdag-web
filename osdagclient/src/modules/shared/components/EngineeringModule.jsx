@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Suspense } from "react";
 import { Html, PerspectiveCamera } from "@react-three/drei";
@@ -38,7 +38,11 @@ export const EngineeringModule = ({
     propertyClassList,
     angleList,
     boltTypeList,
+    sectionProfileList,
+    channelList,
+    sectionDesignation,
     cadModelPaths,
+    hoverDict: ctxHoverDict,
 
     // State
     inputs,
@@ -69,6 +73,8 @@ export const EngineeringModule = ({
     setScreenshotTrigger,
     extraState,
     setExtraState,
+    modalDynamicSrc,
+    setModalDynamicSrc,
 
     // Navigation and Reset states
     showResetConfirmation,
@@ -92,6 +98,7 @@ export const EngineeringModule = ({
     handleCreateDesignReport,
     handleOkDesignReport,
     handleCancelDesignReport,
+    clearDesignResults,
   } = useEngineeringModule(moduleConfig);
 
   const [showResetButton, setShowResetButton] = useState(false);
@@ -99,11 +106,15 @@ export const EngineeringModule = ({
   const [showOutputDock, setShowOutputDock] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [isDesignComplete, setIsDesignComplete] = useState(false);
+  const [isInputLocked, setIsInputLocked] = useState(false);
   const [showOptionsContainer, setShowOptionsContainer] = useState(false); // New state for options container
   const [isGridActive, setIsGridActive] = useState(false);
   const [isRedesigning, setIsRedesigning] = useState(false); // New state for re-design operations
-  const [selectedSection, setSelectedSection] = useState("Model");
+  const [selectedSection, setSelectedSection] = useState(["Model"]);
   const [selectedCameraView, setSelectedCameraView] = useState("Model");
+  // Hover tooltip state for 3D parts
+  const [hoverText, setHoverText] = useState("");
+  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
   // Auth helpers
   const BASE_URL = 'http://localhost:8000/api/';
   const getAccessToken = () => localStorage.getItem('access') || localStorage.getItem('token') || '';
@@ -135,6 +146,15 @@ export const EngineeringModule = ({
         if (!res.ok || !data.success) {
           message.warning('Project not found. Redirecting to home.');
           navigate('/');
+          return;
+        }
+        // Prefill inputs from saved project when opening by id
+        if (data.project && data.project.inputs_json) {
+          try {
+            setInputs(data.project.inputs_json);
+          } catch (_ignored) {
+            // ignore parse issues; user can overwrite via UI
+          }
         }
       } catch (_e) {
         message.warning('Cannot verify project. Redirecting to home.');
@@ -152,9 +172,11 @@ export const EngineeringModule = ({
       setShowInputDock(false);
       setShowOutputDock(true);
       setShowLogs(true);
+      setIsInputLocked(true);
     } else if (isRedesigning || loading) {
       setIsDesignComplete(false);
       setShowOptionsContainer(false);
+      setIsInputLocked(false);
     }
   }, [loading, output, renderBoolean, isRedesigning]);
 
@@ -168,6 +190,7 @@ export const EngineeringModule = ({
   };
 
   const handleSubmitEnhanced = async () => {
+    setIsInputLocked(false);
     // If there's already an existing design, completely reset everything
     if (isDesignComplete || renderBoolean || output) {
 
@@ -177,7 +200,7 @@ export const EngineeringModule = ({
       setShowOutputDock(false);
       setShowLogs(false);
       setShowOptionsContainer(false);
-      setSelectedSection("Model");
+      setSelectedSection(["Model"]);
       setSelectedCameraView("Model");
 
       // Reset all the data that controls model rendering
@@ -191,6 +214,25 @@ export const EngineeringModule = ({
     try {
       await handleSubmit();
       setShowResetButton(true);
+
+      // Persist latest inputs to project after design
+      if (!isGuest()) {
+        const pid = getProjectIdFromUrl();
+        if (pid && !Number.isNaN(pid)) {
+          try {
+            await fetch(`${BASE_URL}projects/${pid}/`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getAccessToken()}`,
+              },
+              body: JSON.stringify({ inputs_json: inputs }),
+            });
+          } catch (_e) {
+            // ignore persistence errors; UI will still show outputs
+          }
+        }
+      }
     } catch (error) {
     } finally {
       // Reset the redesigning state after completion
@@ -205,15 +247,33 @@ export const EngineeringModule = ({
 
   // Toggle functions for SVG clicks
   const toggleInputDock = () => {
-    if (showInputDock) return;
-    setShowInputDock(true);
-    setShowOutputDock(false);
+    setShowInputDock((prev) => !prev);
   };
 
   const toggleOutputDock = () => {
-    if (!isDesignComplete || showOutputDock) return;
-    setShowInputDock(false);
-    setShowOutputDock(true);
+    if (!isDesignComplete) return;
+    setShowOutputDock((prev) => !prev);
+  };
+
+  const handleLockToggle = () => {
+    if (isInputLocked) {
+      clearDesignResults();
+      setIsDesignComplete(false);
+      setShowOptionsContainer(false);
+      setShowOutputDock(false);
+      setShowLogs(false);
+      setSelectedSection(["Model"]);
+      setSelectedCameraView("Model");
+      setShowResetButton(false);
+      setHoverText("");
+      setHoverPos({ x: 0, y: 0 });
+      setIsInputLocked(false);
+      setShowInputDock(true);
+      setIsRedesigning(false);
+    } else {
+      setIsInputLocked(true);
+      setShowInputDock(false);
+    }
   };
 
   const toggleLogs = () => {
@@ -237,61 +297,62 @@ export const EngineeringModule = ({
     setSelectedSection("Model"); // Reset selected section
     setSelectedCameraView("Model"); // Reset selected camera view
     setIsRedesigning(false); // Reset redesigning state
+    setIsInputLocked(false);
   };
-  // Save inputs to OSI file
+  // Save inputs to OSI file / Project (JSON-first)
   const handleSaveInputs = async () => {
     const userIsGuest = isGuest();
 
-    // For authenticated users: require project ID
-    if (!userIsGuest) {
-      const projectId = getProjectIdFromUrl();
-      if (!projectId || Number.isNaN(projectId)) {
-        message.warning('No active project. Open or create a project first.');
-        return;
-      }
-    }
-
     // Determine module_id - use designType from moduleConfig, or fallback to inputs.module
     const module_id = moduleConfig?.designType || inputs?.module || moduleConfig?.cameraKey || 'SeatedAngleConnection';
-
-    // Get project name from inputs or use default
     const projectName = inputs?.project_name || inputs?.name || moduleConfig?.sessionName || 'project';
 
     try {
-      const headers = {
-        'Content-Type': 'application/json',
+      // Expand inputs for any multi-selects where "All" is selected so arrays are populated
+      const expandAllSelectedInputs = (baseInputs) => {
+        const keyToFullListMap = {
+          bolt_diameter: boltDiameterList,
+          bolt_grade: propertyClassList,
+          plate_thickness: thicknessList,
+          flange_plate_thickness: thicknessList,
+          web_plate_thickness: thicknessList,
+          angle_list: angleList,
+          topangle_list: angleList,
+          cleat_section: angleList,
+        };
+        const expanded = { ...baseInputs };
+        Object.keys(keyToFullListMap).forEach((inputKey) => {
+          if (allSelected?.[inputKey]) {
+            const fullList = keyToFullListMap[inputKey] || [];
+            // Normalize values to strings like the UI does
+            expanded[inputKey] = Array.isArray(fullList)
+              ? fullList.map((val) => {
+                if (typeof val === 'object' && val !== null) {
+                  return val.value || val.Grade || String(val);
+                }
+                return String(val);
+              })
+              : [];
+          }
+        });
+        return expanded;
       };
 
-      // Only add auth header if user is logged in (not guest)
-      if (!userIsGuest) {
-        headers['Authorization'] = `Bearer ${getAccessToken()}`;
-      }
-
-      const response = await fetch(`${BASE_URL}save-osi-from-inputs/`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({
-          name: projectName,
-          module_id: module_id,
-          inputs: inputs,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        // Handle guest user: download OSI file
-        if (data.is_guest || userIsGuest) {
+      const inputsForSave = expandAllSelectedInputs(inputs);
+      if (userIsGuest) {
+        // Guest: existing OSI download flow
+        const response = await fetch(`${BASE_URL}save-osi-from-inputs/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: projectName, module_id: module_id, inputs: inputsForSave }),
+        });
+        const data = await response.json();
+        if (response.ok && data.success && data.is_guest) {
           try {
-            // Decode base64 content
             const binaryString = atob(data.content_base64);
             const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
+            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
             const blob = new Blob([bytes], { type: 'text/plain' });
-
-            // Create download link
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
@@ -300,7 +361,6 @@ export const EngineeringModule = ({
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-
             message.success('OSI file downloaded successfully');
           } catch (err) {
             console.error('Error downloading OSI file:', err);
@@ -308,36 +368,57 @@ export const EngineeringModule = ({
           }
           return;
         }
-
-        // Handle authenticated user: save to DB and link to project
-        const savedName = projectName;
-        setSaveInputFileName(data?.data?.id ? `${savedName}.osi` : savedName);
-        setDisplaySaveInputPopup(true);
-        message.success('Inputs saved successfully');
-
-        // Update project's osi_file_path if project ID and URL are available
-        const projectId = getProjectIdFromUrl();
-        if (projectId && data.url) {
-          try {
-            const updateResponse = await fetch(`${BASE_URL}projects/${projectId}/`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getAccessToken()}`,
-              },
-              body: JSON.stringify({ osi_file_path: data.url }),
-            });
-
-            const updateData = await updateResponse.json();
-            if (!updateResponse.ok || !updateData.success) {
-              console.warn('Saved OSI, but failed to link to project:', updateData);
-            }
-          } catch (err) {
-            console.warn('Error linking OSI to project:', err);
-          }
-        }
-      } else {
         message.error(data.error || 'Failed to save inputs');
+        return;
+      }
+
+      // Authenticated: persist inputs_json to project
+      const projectId = getProjectIdFromUrl();
+      if (!projectId || Number.isNaN(projectId)) {
+        message.warning('No active project. Open or create a project first.');
+        return;
+      }
+      const updateResponse = await fetch(`${BASE_URL}projects/${projectId}/`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAccessToken()}`,
+        },
+        body: JSON.stringify({ inputs_json: inputsForSave }),
+      });
+      const upd = await updateResponse.json();
+      if (!updateResponse.ok || !upd.success) {
+        message.error(upd.error || 'Failed to save inputs');
+        return;
+      }
+
+      // Also provide a local OSI download for logged-in users (same as guest)
+      try {
+        const saveRes = await fetch(`${BASE_URL}save-osi-from-inputs/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAccessToken()}` },
+          body: JSON.stringify({ name: projectName, module_id, inputs: inputsForSave, inline: true }),
+        });
+        const data = await saveRes.json();
+        if (saveRes.ok && data.success && data.content_base64) {
+          const binaryString = atob(data.content_base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = data.filename || `${projectName}.osi`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          message.success('Inputs saved and OSI downloaded');
+        } else {
+          message.success('Inputs saved');
+        }
+      } catch (_e) {
+        message.success('Inputs saved');
       }
     } catch (err) {
       console.error('Error saving inputs:', err);
@@ -365,8 +446,12 @@ export const EngineeringModule = ({
     modelScale,
   } = cameraSettings;
 
-  // Determine view options based on module
+  // Determine view options based on module config
   const getViewOptions = () => {
+    if (moduleConfig.cadOptions) {
+      return moduleConfig.cadOptions || ["Model", "Beam", "Connector"];
+    }
+
     if (moduleConfig.cameraKey === "FinPlateConnection") {
       return ["Model", "Beam", "Column", "Plate"];
     }
@@ -379,7 +464,10 @@ export const EngineeringModule = ({
     else if (moduleConfig.cameraKey === "SeatedAngle") {
       return ["Model", "Beam", "Column", "SeatedAngle"]; // FIXED: Use SeatedAngle instead of Connector
     }
-    return ["Model", "Beam", "Connector"];
+    else if (moduleConfig.cameraKey === "BeamToColumnEndPlate") {
+      return ["Model", "Beam", "Column", "End Plate"];
+    }
+    return moduleConfig.cadOptions;
   };
 
   const options = getViewOptions();
@@ -394,10 +482,68 @@ export const EngineeringModule = ({
     propertyClassList,
     angleList, // FIXED: Added angleList to context data
     boltTypeList,
+    sectionProfileList,
+    channelList,
+    sectionDesignation
   };
 
   const triggerScreenshotCapture = () => {
     setScreenshotTrigger(true);
+  };
+
+  // Default hover dictionary mapping per-part names to labels
+  // Prioritize ctxHoverDict values from backend over defaults
+  // Use useMemo to recalculate when ctxHoverDict changes
+  const hoverDict = useMemo(() => {
+    const defaults = {
+      // Defaults (fallback if backend doesn't provide)
+      Beam: "Beam",
+      Column: "Column",
+      Plate: "Plate",
+      Weld: "Weld",
+      Welds: "Welds",
+      Bolt: "Bolt",
+      Bolts: "Bolts",
+      cleatAngle: "Cleat Angle",
+      SeatedAngle: "Seated Angle",
+      Connector: "Connector",
+      EndPlate: "End Plate",
+      Member: "Member",
+      Angle: "Angle",
+    };
+    
+    // Backend hover_dict values override defaults
+    const final = {
+      ...defaults,
+      ...(ctxHoverDict || {}),
+    };
+    
+    // Debug: log hoverDict to see what we have
+    if (ctxHoverDict && Object.keys(ctxHoverDict).length > 0) {
+      console.log('[EngineeringModule] ctxHoverDict:', ctxHoverDict);
+      console.log('[EngineeringModule] Final hoverDict:', final);
+    }
+    
+    return final;
+  }, [ctxHoverDict]);
+
+  // If backend provided bolt details but no separate Bolt mesh exists,
+  // enrich the Plate hover to include bolt info as a fallback.
+  const hasBoltMesh = Boolean(cadModelPaths?.Bolt || cadModelPaths?.Bolts);
+  if (!hasBoltMesh && (ctxHoverDict && ctxHoverDict.Bolt)) {
+    const boltText = String(ctxHoverDict.Bolt).replace(/<br\s*\/?>/gi, ' ');
+    hoverDict.Plate = hoverDict.Plate ? `${hoverDict.Plate}: ${boltText}` : boltText;
+  }
+
+  const handleHoverLabel = (label, clientX, clientY) => {
+    if (!label) return;
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+      setHoverPos({ x: clientX + 12, y: clientY + 12 });
+    }
+    setHoverText(label);
+  };
+  const handleHoverEnd = () => {
+    setHoverText("");
   };
 
   return (
@@ -429,64 +575,65 @@ export const EngineeringModule = ({
           </span>
         )}
 
-        <div className="element">
-          {/* All 4 buttons together with same styling */}
-          <button onClick={toggleInputDock}>
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z" /></svg>
-          </button>
-          <button onClick={toggleLogs}>
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-200v120h560v-120H200Zm0-80h560v-360H200v360Zm0 80v120-120Z" /></svg>
+        <div className="flex items-center gap-2 ml-auto pr-4 text-black dark:text-white">
+          <button
+            onClick={toggleInputDock}
+            className={`p-2 rounded-md transition-colors ${showInputDock ? 'bg-osdag-green text-white dark:bg-osdag-dark-green' : 'hover:bg-black/10 hover:text-osdag-green dark:hover:bg-black/40'}`}
+            title={`${showInputDock ? 'Hide' : 'Show'} input dock`}
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-5 h-5" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z" /></svg>
           </button>
           <button
-            onClick={isDesignComplete ? toggleOutputDock : undefined} >
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000000"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm440-80h120v-560H640v560Zm-80 0v-560H200v560h360Zm80 0h120-120Z" /></svg>
+            onClick={toggleLogs}
+            className={`p-2 rounded-md transition-colors ${showLogs ? 'bg-osdag-green text-white dark:bg-osdag-dark-green' : 'hover:bg-black/10 hover:text-osdag-green dark:hover:bg-black/40'}`}
+            title={`${showLogs ? 'Hide' : 'Show'} logs`}
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-5 h-5" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-200v120h560v-120H200Zm0-80h560v-360H200v360Zm0 80v120-120Z" /></svg>
           </button>
-          <img
-            src={Homesvg}
-            alt="Home"
-            className="navbar-control-icon"
+          <button
+            onClick={toggleOutputDock}
+            className={`p-2 rounded-md transition-colors ${showOutputDock ? 'bg-osdag-green text-white dark:bg-osdag-dark-green' : isDesignComplete ? 'hover:bg-black/10 hover:text-osdag-green dark:hover:bg-black/40' : 'opacity-40 cursor-not-allowed'}`}
+            title={isDesignComplete ? `${showOutputDock ? 'Hide' : 'Show'} output dock` : 'Run a design to view outputs'}
+            type="button"
+            disabled={!isDesignComplete}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-5 h-5" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm440-80h120v-560H640v560Zm-80 0v-560H200v560h360Zm80 0h120-120Z" /></svg>
+          </button>
+          <button
             onClick={handleHomeClick}
+            className="p-2 rounded-md transition-colors hover:bg-black/10 dark:hover:bg-black/40"
             title="Home"
-          />
-        </div>
-        {/* Dark/Light Mode Toggle */}
-        <button
-          onClick={() => {
-            // Toggle a "dark" class on the <body> (simple theme swap)
-            const current = document.body.classList.contains('dark');
-            if (current) {
-              document.body.classList.remove('dark');
-              localStorage.setItem('osdag-theme', 'light');
-            } else {
-              document.body.classList.add('dark');
-              localStorage.setItem('osdag-theme', 'dark');
+            type="button"
+          >
+            <img src={Homesvg} alt="Home" className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => {
+              const current = document.body.classList.contains('dark');
+              if (current) {
+                document.body.classList.remove('dark');
+                localStorage.setItem('osdag-theme', 'light');
+              } else {
+                document.body.classList.add('dark');
+                localStorage.setItem('osdag-theme', 'dark');
+              }
+            }}
+            title="Toggle dark/light mode"
+            className="p-2 rounded-md transition-colors hover:bg-black/10 dark:hover:bg-black/40"
+            type="button"
+          >
+            {
+              document.body.classList.contains('dark')
+                ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-5 h-5" fill="currentColor"><path d="M440-760v-160h80v160h-80Zm266 110-55-55 112-115 56 57-113 113Zm54 210v-80h160v80H760ZM440-40v-160h80v160h-80ZM254-652 140-763l57-56 113 113-56 54Zm508 512L651-255l54-54 114 110-57 59ZM40-440v-80h160v80H40Zm157 300-56-57 112-112 29 27 29 28-114 114Zm283-100q-100 0-170-70t-70-170q0-100 70-170t170-70q100 0 170 70t70 170q0 100-70 170t-170 70Zm0-80q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0-160Z" /></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" className="w-5 h-5" fill="currentColor"><path d="M484-80q-84 0-157.5-32t-128-86.5Q144-253 112-326.5T80-484q0-146 93-257.5T410-880q-18 99 11 193.5T521-521q71 71 165.5 100T880-410q-26 144-138 237T484-80Zm0-80q88 0 163-44t118-121q-86-8-163-43.5T464-465q-61-61-97-138t-43-163q-77 43-120.5 118.5T160-484q0 135 94.5 229.5T484-160Zm-20-305Z" /></svg>
+                )
             }
-          }}
-          title="Toggle dark/light mode"
-          className="ml-2 text-black dark:text-white"
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            outline: "none",
-            height: "32px",
-            width: "32px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          {
-            document.body.classList.contains('dark')
-              ? (
-                // Light icon (sun)
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000"><path d="M440-760v-160h80v160h-80Zm266 110-55-55 112-115 56 57-113 113Zm54 210v-80h160v80H760ZM440-40v-160h80v160h-80ZM254-652 140-763l57-56 113 113-56 54Zm508 512L651-255l54-54 114 110-57 59ZM40-440v-80h160v80H40Zm157 300-56-57 112-112 29 27 29 28-114 114Zm283-100q-100 0-170-70t-70-170q0-100 70-170t170-70q100 0 170 70t70 170q0 100-70 170t-170 70Zm0-80q66 0 113-47t47-113q0-66-47-113t-113-47q-66 0-113 47t-47 113q0 66 47 113t113 47Zm0-160Z" /></svg>
-              ) : (
-                // Dark icon (moon)
-                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#000"><path d="M484-80q-84 0-157.5-32t-128-86.5Q144-253 112-326.5T80-484q0-146 93-257.5T410-880q-18 99 11 193.5T521-521q71 71 165.5 100T880-410q-26 144-138 237T484-80Zm0-80q88 0 163-44t118-121q-86-8-163-43.5T464-465q-61-61-97-138t-43-163q-77 43-120.5 118.5T160-484q0 135 94.5 229.5T484-160Zm-20-305Z" /></svg>
-              )
-          }
-        </button>
+          </button>
+        </div>
 
         {/* Initial theme detection, run once per mount */}
         {React.useEffect(() => {
@@ -500,23 +647,84 @@ export const EngineeringModule = ({
       </div>
 
       <div
-        className={`superMainBody ${!showInputDock ? "no-input-dock" : ""} ${!showOutputDock ? "no-output-dock" : ""
+        className={`superMainBody relative ${!showInputDock ? "no-input-dock" : ""} ${!showOutputDock ? "no-output-dock" : ""
           }`}
       >
+        {/* Input Dock Toggle Button - Fixed to left, shows when dock is closed */}
+        {!showInputDock && (
+          <button
+            onClick={toggleInputDock}
+            className="absolute left-0 top-0 h-full w-8 bg-white dark:bg-osdag-dark-color border-r border-gray-300 dark:border-osdag-border flex items-center justify-center z-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
+            title="Open Input Dock"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="currentColor">
+              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+            </svg>
+          </button>
+        )}
+
+        {/* Output Dock Toggle Button - Fixed to right, shows when dock is closed and design is complete */}
+        {!showOutputDock && isDesignComplete && (
+          <button
+            onClick={toggleOutputDock}
+            className="absolute right-0 top-0 h-full w-8 bg-white dark:bg-osdag-dark-color border-l border-gray-300 dark:border-gray-700 flex items-center justify-center z-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
+            title="Open Output Dock"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="currentColor">
+              <path d="M15.41 7.41L10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41z" />
+            </svg>
+          </button>
+        )}
+
+        {/* Input Dock Close Button - Right side, outside dock, pointing left */}
+        {showInputDock && (
+          <button
+            onClick={toggleInputDock}
+            className="absolute left-[400px] top-1/2 -translate-y-1/2 w-[30px] h-[30px] bg-white dark:bg-osdag-dark-color border border-gray-300 dark:border-gray-700 rounded flex items-center justify-center z-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
+            title="Close Input Dock"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="currentColor">
+              <path d="M15.41 7.41L10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41z" />
+            </svg>
+          </button>
+        )}
+
         {/* Left - Input Dock - Only show if showInputDock is true */}
         {showInputDock && (
           <div className="w-[400px] bg-white dark:bg-osdag-dark-color">
-            <div className="flex justify-between inputRow">
+            <div className="flex items-center justify-between inputRow">
               <span className="flex justify-center items-center w-32 my-2 ml-4 py-1 px-1 text-sm text-center rounded-xl font-medium bg-osdag-green text-white flex-shrink-0">Input Dock</span>
-              <button
-                onClick={() => setDesignPrefModalStatus(true)}
-                className="flex items-center justify-center px-4 py-1 my-2 mr-4 text-sm font-medium text-white bg-osdag-green rounded-lg hover:bg-osdag-dark-green transition-colors"
-                title="Open Additional Preferences"
-              >
-                Additional Preferences
-              </button>
+              <div className="flex items-center gap-2 mr-4">
+                <button
+                  onClick={() => setDesignPrefModalStatus(true)}
+                  className={`flex items-center justify-center px-4 py-1 my-2 text-sm font-medium rounded-lg transition-colors ${isInputLocked ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400' : 'bg-osdag-green text-white hover:bg-osdag-dark-green'}`}
+                  title={isInputLocked ? 'Unlock the dock to edit additional inputs' : 'Open Additional Inputs'}
+                  disabled={isInputLocked}
+                >
+                  Additional Inputs
+                </button>
+                <button
+                  onClick={handleLockToggle}
+                  className={`my-2 p-2 rounded-lg transition-colors ${isInputLocked ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600'}`}
+                  title={isInputLocked ? 'Unlock input dock' : 'Lock input dock'}
+                  type="button"
+                >
+                  {isInputLocked ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M12 2a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V7a5 5 0 00-5-5zm-3 5a3 3 0 016 0v3H9V7zm3 6a2 2 0 11-2 2 2 2 0 012-2z" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                      <path d="M18 10h-1V7a5 5 0 10-10 0h2a3 3 0 116 0v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2zm-6 6a2 2 0 112-2 2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
-            <div className="subMainBody scroll-data dark:bg-osdag-dark-color bg-white">
+            <div className={`subMainBody scroll-data dark:bg-osdag-dark-color bg-white ${isInputLocked ? 'pointer-events-none opacity-60' : ''}`}>
               {moduleConfig.inputSections.map((section, index) => (
                 <InputSection
                   key={index}
@@ -531,6 +739,7 @@ export const EngineeringModule = ({
                   extraState={extraState}
                   setExtraState={setExtraState}
                   updateSelectedItems={updateSelectedItems}
+                  setModalDynamicSrc={setModalDynamicSrc}
                 />
               ))}
 
@@ -590,14 +799,61 @@ export const EngineeringModule = ({
                   </div>
                 ))} */}
                 {options.map((option) => {
+                  const isChecked = selectedSection.includes(option);
+                  const isModel = option === "Model";
                   return (
-                    <div
+                    <label
                       key={option}
-                      className="option-wrapper text-black dark:text-white hover:text-osdag-green"
-                      onClick={() => setSelectedSection(option)}
+                      className={`flex items-center gap-3 px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm font-medium ${isChecked ? 'bg-osdag-green/10 text-osdag-green dark:bg-osdag-dark-green/20 dark:text-osdag-green' : 'text-black dark:text-white hover:bg-black/10 dark:hover:bg-black/40'}`}
                     >
-                      {option}
-                    </div>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-400 text-osdag-green focus:ring-osdag-green"
+                        checked={isChecked}
+                        onChange={(event) => {
+                          if (isModel) {
+                            // If Model is selected, clear all others and select only Model
+                            if (event.target.checked) {
+                              setSelectedSection(["Model"]);
+                              setSelectedView("Model");
+                              setSelectedCameraView("Model");
+                            } else {
+                              // Don't allow unchecking Model if it's the only one
+                              if (selectedSection.length === 1 && selectedSection[0] === "Model") {
+                                return;
+                              }
+                            }
+                          } else {
+                            // If a non-Model option is selected
+                            if (event.target.checked) {
+                              // Remove Model from selection and add this option
+                              const newSelection = selectedSection.filter(s => s !== "Model");
+                              if (!newSelection.includes(option)) {
+                                newSelection.push(option);
+                              }
+                              setSelectedSection(newSelection);
+                              // Use first selected for camera/view if needed
+                              setSelectedView(newSelection[0]);
+                              setSelectedCameraView(newSelection[0]);
+                            } else {
+                              // Uncheck: remove this option
+                              const newSelection = selectedSection.filter(s => s !== option);
+                              // If nothing left, default to Model
+                              if (newSelection.length === 0) {
+                                setSelectedSection(["Model"]);
+                                setSelectedView("Model");
+                                setSelectedCameraView("Model");
+                              } else {
+                                setSelectedSection(newSelection);
+                                setSelectedView(newSelection[0]);
+                                setSelectedCameraView(newSelection[0]);
+                              }
+                            }
+                          }
+                        }}
+                      />
+                      <span>{option}</span>
+                    </label>
                   );
                 })}
               </div>
@@ -650,17 +906,21 @@ export const EngineeringModule = ({
                   >
                     <Model
                       modelPaths={cadModelPaths}
-                      selectedView={selectedSection}
+                      selectedView={Array.isArray(selectedSection) ? selectedSection[0] : selectedSection}
+                      selectedViews={selectedSection}
                       cameraSettings={{
                         ...cameraSettings,
                         connectivity: getConnectivity(), // Add connectivity info
                       }}
+                      hoverDict={hoverDict}
+                      onHoverLabel={handleHoverLabel}
+                      onHoverEnd={handleHoverEnd}
                       key={modelKey}
                     />
                     <ScreenshotCapture
                       screenshotTrigger={screenshotTrigger}
                       setScreenshotTrigger={setScreenshotTrigger}
-                      selectedView={selectedSection}
+                      selectedView={Array.isArray(selectedSection) ? selectedSection[0] : selectedSection}
                     />
                   </Suspense>
                 </Canvas>
@@ -671,32 +931,48 @@ export const EngineeringModule = ({
           </div>
 
           {showLogs && (
-            <div className="logs-container">
+            <div className={`logs-container ${!showInputDock ? 'pl-[30px]' : ''} ${!showOutputDock && isDesignComplete ? 'pr-[30px]' : ''} `}>
               <Logs logs={logs} />
             </div>
           )}
         </div>
+
+        {/* Output Dock Close Button - Left side, outside dock, pointing right */}
+        {showOutputDock && isDesignComplete && (
+          <button
+            onClick={toggleOutputDock}
+            className="absolute right-[25%] top-1/2 -translate-y-1/2 w-[30px] h-[30px] bg-white dark:bg-osdag-dark-color border border-gray-300 dark:border-gray-700 rounded flex items-center justify-center z-50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm"
+            title="Close Output Dock"
+            type="button"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="currentColor">
+              <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+            </svg>
+          </button>
+        )}
 
         {/* Right - Output Dock - Only show if showOutputDock is true and design is complete */}
         {showOutputDock && isDesignComplete && (
           <div className="superMain_right">
             <div className="OutputDock">
               <OutputDockComponent output={output} extraState={{ ...extraState, cadModelPaths, renderCadModel: renderBoolean }} />
-              <div className="flex flex-row justify-between mx-5 items-center gap-y-3 mt-2">
-                <div
+              <div className="flex items-center w-full gap-x-4 px-5 mt-2">
+                <button
                   onClick={handleCreateDesignReport}
-                  className="cursor-pointer flex items-center gap-x-2 bg-osdag-green text-white font-semibold p-3 rounded-lg shadow-md duration-200"
-                ><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#FFFFFF"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22q38 0 68.5 22t43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm80-80h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Zm200-190q13 0 21.5-8.5T510-820q0-13-8.5-21.5T480-850q-13 0-21.5 8.5T450-820q0 13 8.5 21.5T480-790ZM200-200v-560 560Z" /></svg>
+                  className="flex flex-1 items-center justify-center gap-x-2 bg-osdag-green text-white font-semibold px-4 py-3 rounded-lg shadow-md duration-200 hover:bg-osdag-dark-green"
+                  type="button"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#FFFFFF"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22q38 0 68.5 22t43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm80-80h280v-80H280v80Zm0-160h400v-80H280v80Zm0-160h400v-80H280v80Zm200-190q13 0 21.5-8.5T510-820q0-13-8.5-21.5T480-850q-13 0-21.5 8.5T450-820q0 13 8.5 21.5T480-790ZM200-200v-560 560Z" /></svg>
                   Generate Report
-                </div>
-
-                <div
+                </button>
+                <button
                   onClick={saveOutput}
-                  className="cursor-pointer flex items-center gap-x-2 bg-osdag-green text-white font-semibold p-3 mb-1 rounded-lg shadow-md duration-200"
-                ><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#FFFFFF"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" /></svg>
+                  className="flex flex-1 items-center justify-center gap-x-2 bg-osdag-green text-white font-semibold px-4 py-3 rounded-lg shadow-md duration-200 hover:bg-osdag-dark-green"
+                  type="button"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#FFFFFF"><path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" /></svg>
                   Save Output
-                </div>
-
+                </button>
               </div>
             </div>
           </div>
@@ -731,7 +1007,7 @@ export const EngineeringModule = ({
             isOpen={modalStates[modal.key]}
             onClose={() => updateModalState(modal.key, false)}
             title="Customized"
-            dataSource={contextData[modal.dataSource] || []} // FIXED: This now includes angleList
+            dataSource={contextData[modal.dataSource] || (modalDynamicSrc[modal.inputKey] || [])} // FIXED: This now includes angleList
             selectedItems={selectedItems[modal.inputKey]}
             onTransferChange={(nextTargetKeys) =>
               updateSelectedItems(modal.inputKey, nextTargetKeys)
@@ -837,7 +1113,7 @@ export const EngineeringModule = ({
       </Modal>
 
       {/* CSS for spinner animation */}
-      <style jsx>{`
+      <style>{`
         @keyframes spin {
           0% {
             transform: rotate(0deg);
@@ -847,6 +1123,28 @@ export const EngineeringModule = ({
           }
         }
       `}</style>
+
+      {/* Hover tooltip overlay */}
+      {hoverText && (
+        <div
+          style={{
+            position: 'fixed',
+            left: hoverPos.x,
+            top: hoverPos.y,
+            background: 'rgba(0,0,0,0.85)',
+            color: '#fff',
+            padding: '6px 10px',
+            borderRadius: 6,
+            pointerEvents: 'none',
+            fontSize: 12,
+            zIndex: 1000,
+            maxWidth: '250px',
+            lineHeight: '1.4',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
+          dangerouslySetInnerHTML={{ __html: hoverText }}
+        />
+      )}
     </div >
   );
 };
